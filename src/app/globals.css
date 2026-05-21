@@ -5,7 +5,49 @@
  * Brand: Rose → Pink → Orange gradient
  * ───────────────────────────────────────────────────────────────────────── */
 @theme {
-  /* Primary brand color (XHS) — kept for backward compatibility */
+  /* ─── shadcn/ui semantic color tokens (Tailwind v4) ──────────────────── *
+   * These map the HSL CSS custom properties from :root / .dark to
+   * Tailwind v4 --color-* tokens so that utility classes like
+   * bg-primary, text-destructive, border-input etc. resolve correctly.
+   * ────────────────────────────────────────────────────────────────────── */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+
+  /* ─── Radius token ──────────────────────────────────────────────────── */
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  /* ─── Primary brand color (XHS) ─────────────────────────────────────── */
   --color-xhs: #FF2442;
   --color-xhs-light: #FFF0F2;
   --color-xhs-dark: #D91A37;
@@ -20,7 +62,7 @@
   --color-xhs-800: #931126;
   --color-xhs-900: #6B0B1A;
 
-  /* Brand gradient stops */
+  /* ─── Brand gradient stops ──────────────────────────────────────────── */
   --color-brand-rose: #F43F5E;
   --color-brand-pink: #EC4899;
   --color-brand-orange: #FB923C;
