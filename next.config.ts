@@ -6,16 +6,17 @@ const nextConfig: NextConfig = {
   },
   reactStrictMode: false,
   // Allow cross-origin requests in dev for preview panel (space-z.ai, localhost, etc.)
+  // Supports wildcard patterns like *.space-z.ai for dynamic preview subdomains
   allowedDevOrigins: [
+    "*.localhost",
+    "localhost",
+    "*.space-z.ai",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
     "http://0.0.0.0:3000",
     "http://localhost:81",
     "http://127.0.0.1:81",
     "http://0.0.0.0:81",
-    // space-z.ai preview origins (common patterns)
-    "https://space-z.ai",
-    "https://preview.space-z.ai",
   ],
   // Allow all cross-origin in dev for preview iframe
   async headers() {
