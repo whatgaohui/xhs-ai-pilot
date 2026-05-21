@@ -139,3 +139,31 @@ Stage Summary:
 - Account Hub Header: Cookie button with status indicator, refresh tooltip about cookies
 - Account Hub View: onEditCookies callback, refresh uses stored cookies, redirects to cookie dialog if missing
 - All changes verified working via API testing and lint checks
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Add "View Original Image" feature to Material Management detail dialog
+
+Work Log:
+- Analyzed the current detail dialog in library-view.tsx — image preview is restricted with `max-h-[400px]` and `object-contain`, preventing users from seeing full original image details
+- Added new icon imports: ZoomIn, ZoomOut, Maximize2, RotateCcw from lucide-react
+- Added new state variables for the original image viewer: viewOriginalOpen, imgZoom, imgPan, isPanning, panStartRef
+- Implemented zoom controls: handleZoomIn (1.5x), handleZoomOut (/1.5), handleResetZoom (reset to 1x)
+- Implemented pan/drag handlers: handlePanMouseDown, handlePanMouseMove, handlePanMouseUp — only active when zoom > 1
+- Added keyboard support via useEffect: Escape to close, +/- to zoom, 0 to reset
+- Added "查看原图" (View Original) button in the detail dialog footer for image assets, placed before AI analyze button
+- Created full-screen image viewer overlay (z-[100]) with:
+  - Top bar: file name, image dimensions (width × height), zoom controls (zoom in/out/reset/percentage), close button
+  - Image area: centered image with CSS transform for zoom and pan, scroll wheel zoom support, drag-to-pan when zoomed
+  - Bottom hint bar: usage instructions (scroll zoom, drag when zoomed, click blank to close, Esc to exit)
+- At zoom level 1: image fits within viewport (maxWidth/maxHeight 100%)
+- When zoomed >1: image displays at original resolution, can be dragged/panned
+- Verified lint passes, no compilation errors
+
+Stage Summary:
+- Full-screen original image viewer implemented with zoom (0.1x-10x), pan, and scroll wheel support
+- "查看原图" button added to detail dialog footer for image assets
+- Keyboard shortcuts: Escape (close), +/- (zoom), 0 (reset)
+- Image dimensions displayed in viewer header when available
+- Click on blank area closes the viewer

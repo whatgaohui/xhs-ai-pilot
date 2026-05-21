@@ -76,6 +76,10 @@ import {
   Type,
   CheckSquare,
   Square,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -265,6 +269,65 @@ export function LibraryView() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
+
+  // Original image viewer
+  const [viewOriginalOpen, setViewOriginalOpen] = useState(false);
+  const [imgZoom, setImgZoom] = useState(1);
+  const [imgPan, setImgPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+
+  const openOriginalViewer = useCallback(() => {
+    setImgZoom(1);
+    setImgPan({ x: 0, y: 0 });
+    setViewOriginalOpen(true);
+  }, []);
+
+  const handleZoomIn = useCallback(() => setImgZoom((z) => Math.min(z * 1.5, 10)), []);
+  const handleZoomOut = useCallback(() => setImgZoom((z) => Math.max(z / 1.5, 0.1)), []);
+  const handleResetZoom = useCallback(() => {
+    setImgZoom(1);
+    setImgPan({ x: 0, y: 0 });
+  }, []);
+
+  // Pan handlers for drag
+  const handlePanMouseDown = useCallback((e: React.MouseEvent) => {
+    if (imgZoom <= 1) return;
+    e.preventDefault();
+    setIsPanning(true);
+    panStartRef.current = { x: e.clientX, y: e.clientY, panX: imgPan.x, panY: imgPan.y };
+  }, [imgZoom, imgPan]);
+
+  const handlePanMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isPanning || !panStartRef.current) return;
+    const dx = e.clientX - panStartRef.current.x;
+    const dy = e.clientY - panStartRef.current.y;
+    setImgPan({ x: panStartRef.current.panX + dx, y: panStartRef.current.panY + dy });
+  }, [isPanning]);
+
+  const handlePanMouseUp = useCallback(() => {
+    setIsPanning(false);
+    panStartRef.current = null;
+  }, []);
+
+  // Keyboard handler for original image viewer
+  useEffect(() => {
+    if (!viewOriginalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setViewOriginalOpen(false);
+      } else if (e.key === "+" || e.key === "=") {
+        setImgZoom((z) => Math.min(z * 1.5, 10));
+      } else if (e.key === "-") {
+        setImgZoom((z) => Math.max(z / 1.5, 0.1));
+      } else if (e.key === "0") {
+        setImgZoom(1);
+        setImgPan({ x: 0, y: 0 });
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [viewOriginalOpen]);
 
   // --- Debounced search ---
   useEffect(() => {
@@ -1112,6 +1175,17 @@ export function LibraryView() {
 
               {/* Actions */}
               <DialogFooter className="flex-row gap-2 sm:justify-start shrink-0 border-t border-border/40 pt-4 -mx-6 px-6">
+                {selectedAsset.type === "image" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={openOriginalViewer}
+                    className="gap-1.5 border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    查看原图
+                  </Button>
+                )}
                 {selectedAsset.type === "image" && !selectedAsset.aiAnalyzed && (
                   <Button
                     variant="outline"
@@ -1164,6 +1238,110 @@ export function LibraryView() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ── Original Image Viewer Overlay ────────────────────────────────── */}
+      {viewOriginalOpen && selectedAsset && selectedAsset.type === "image" && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 flex flex-col"
+          onClick={() => setViewOriginalOpen(false)}
+        >
+          {/* Top bar */}
+          <div
+            className="shrink-0 flex items-center justify-between px-4 py-3 bg-black/60 text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <ImageIcon className="w-5 h-5" />
+              <span className="text-sm font-medium truncate max-w-[200px] sm:max-w-[400px]">
+                {selectedAsset.originalName || selectedAsset.fileName}
+              </span>
+              {selectedAsset.width > 0 && selectedAsset.height > 0 && (
+                <span className="text-xs text-white/60">
+                  {selectedAsset.width} × {selectedAsset.height}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Zoom controls */}
+              <div className="flex items-center gap-1 mr-2">
+                <button
+                  onClick={handleZoomOut}
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                  title="缩小"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                <span className="text-xs text-white/80 min-w-[48px] text-center tabular-nums">
+                  {Math.round(imgZoom * 100)}%
+                </span>
+                <button
+                  onClick={handleZoomIn}
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                  title="放大"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleResetZoom}
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                  title="重置"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              </div>
+              <button
+                onClick={() => setViewOriginalOpen(false)}
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                title="关闭"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Image area */}
+          <div
+            className="flex-1 overflow-auto flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={handlePanMouseDown}
+            onMouseMove={handlePanMouseMove}
+            onMouseUp={handlePanMouseUp}
+            onMouseLeave={handlePanMouseUp}
+            onWheel={(e) => {
+              e.preventDefault();
+              if (e.deltaY < 0) {
+                setImgZoom((z) => Math.min(z * 1.15, 10));
+              } else {
+                setImgZoom((z) => Math.max(z / 1.15, 0.1));
+              }
+            }}
+            style={{ cursor: imgZoom > 1 ? (isPanning ? 'grabbing' : 'grab') : 'default' }}
+          >
+            <img
+              src={getMediaUrl(selectedAsset.url || selectedAsset.thumbnail)}
+              alt={selectedAsset.originalName}
+              style={{
+                transform: `translate(${imgPan.x}px, ${imgPan.y}px) scale(${imgZoom})`,
+                transformOrigin: 'center center',
+                transition: isPanning ? 'none' : 'transform 0.15s ease-out',
+                maxWidth: imgZoom <= 1 ? '100%' : 'none',
+                maxHeight: imgZoom <= 1 ? '100%' : 'none',
+                userSelect: 'none',
+                pointerEvents: 'none',
+              }}
+              draggable={false}
+            />
+          </div>
+
+          {/* Bottom hint */}
+          <div
+            className="shrink-0 px-4 py-2 bg-black/60 text-white/50 text-xs text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            滚轮缩放 · 放大后拖拽移动 · 点击空白处关闭 · 按 Esc 退出
+          </div>
+        </div>
+      )}
 
       {/* ── 7. Text Snippet Creation Dialog ────────────────────────────── */}
       <Dialog open={textDialogOpen} onOpenChange={setTextDialogOpen}>
