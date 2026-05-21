@@ -53,6 +53,7 @@ model XhsPost {
   content       String   @default("")  // 正文
   coverUrl      String   @default("")  // 封面图
   imageUrls     String   @default("[]") // 图片URL列表 JSON
+  videoUrl      String   @default("")  // 视频URL
   postType      String   @default("normal") // normal, video
   
   // 互动数据

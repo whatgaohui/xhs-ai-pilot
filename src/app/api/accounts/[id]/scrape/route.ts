@@ -31,6 +31,7 @@ interface ScrapePostData {
   content?: string;
   coverUrl?: string;
   imageUrls?: string[];
+  videoUrl?: string;
   postType?: string;
   likes?: number;
   comments?: number;
@@ -187,6 +188,7 @@ export async function POST(
         content: p.content || "",
         coverUrl: p.coverUrl || "",
         imageUrls: JSON.stringify(p.imageUrls || []),
+        videoUrl: p.videoUrl || "",
         postType: p.postType || "normal",
         likes: p.likes || 0,
         comments: p.comments || 0,

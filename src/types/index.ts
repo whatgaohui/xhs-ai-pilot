@@ -28,6 +28,7 @@ export interface XhsPostInfo {
   content: string;
   coverUrl: string;
   imageUrls: string[];
+  videoUrl: string;
   postType: 'normal' | 'video';
   likes: number;
   comments: number;

@@ -109,6 +109,7 @@ export async function GET(request: NextRequest) {
       content: p.content,
       coverUrl: p.coverUrl,
       imageUrls: JSON.parse(p.imageUrls || '[]'),
+      videoUrl: p.videoUrl,
       postType: p.postType,
       likes: p.likes,
       comments: p.comments,

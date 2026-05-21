@@ -202,88 +202,117 @@ export function AccountHubView() {
           isDeleting={deleting}
         />
 
-        {/* Tabs — only triggers + content */}
-        <Tabs
-          value={accountHubTab}
-          onValueChange={(v) =>
-            setAccountHubTab(v as "overview" | "notes" | "persona")
-          }
-          className="h-full flex flex-col overflow-hidden"
-        >
-          {/* Tab triggers — sticky top bar with consistent spacing */}
-          <div className="shrink-0 border-b border-border/60 bg-background/95 backdrop-blur-md px-6 md:px-8">
-            <TabsList className="h-10 bg-transparent gap-1 p-0">
-              <TabsTrigger
-                value="overview"
-                className={cn(
-                  "h-10 px-4 gap-2 rounded-none border-b-2 border-transparent bg-transparent",
-                  "data-[state=active]:border-rose-500 data-[state=active]:text-rose-500",
-                  "data-[state=active]:shadow-none data-[state=active]:bg-transparent",
-                  "text-muted-foreground hover:text-foreground transition-colors text-sm"
-                )}
-              >
-                <LayoutGrid className="w-4 h-4" />
-                账号概览
-              </TabsTrigger>
-              <TabsTrigger
-                value="notes"
-                className={cn(
-                  "h-10 px-4 gap-2 rounded-none border-b-2 border-transparent bg-transparent",
-                  "data-[state=active]:border-rose-500 data-[state=active]:text-rose-500",
-                  "data-[state=active]:shadow-none data-[state=active]:bg-transparent",
-                  "text-muted-foreground hover:text-foreground transition-colors text-sm"
-                )}
-              >
-                <FileText className="w-4 h-4" />
-                笔记管理
-              </TabsTrigger>
-              <TabsTrigger
-                value="persona"
-                className={cn(
-                  "h-10 px-4 gap-2 rounded-none border-b-2 border-transparent bg-transparent",
-                  "data-[state=active]:border-rose-500 data-[state=active]:text-rose-500",
-                  "data-[state=active]:shadow-none data-[state=active]:bg-transparent",
-                  "text-muted-foreground hover:text-foreground transition-colors text-sm"
-                )}
-              >
-                <Theater className="w-4 h-4" />
-                人设管理
-              </TabsTrigger>
-            </TabsList>
+        {/* Empty state when no accounts exist — show ONLY this, no tabs */}
+        {accountData.accounts.length === 0 && !accountData.loading ? (
+          <div className="flex-1 flex items-center justify-center p-6">
+            <EmptyState
+              icon={Users}
+              title="还没有添加账号"
+              description="添加你的第一个小红书账号，开始数据分析"
+              actionLabel="添加账号"
+              onAction={() => setAddAccountDialogOpen(true)}
+              demoLabel="加载演示数据"
+              onDemoAction={async () => {
+                try {
+                  const res = await fetch("/api/demo/seed", {
+                    method: "POST",
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    toast.success("演示数据加载成功！");
+                    await accountData.refreshAccounts();
+                  } else {
+                    toast.error(data.error || "加载演示数据失败");
+                  }
+                } catch {
+                  toast.error("网络错误，请重试");
+                }
+              }}
+            />
           </div>
-
-          {/* Tab content — each scrolls independently */}
-          <TabsContent
-            value="overview"
-            className="flex-1 mt-0 overflow-y-auto data-[state=inactive]:hidden"
+        ) : (
+          <Tabs
+            value={accountHubTab}
+            onValueChange={(v) =>
+              setAccountHubTab(v as "overview" | "notes" | "persona")
+            }
+            className="h-full flex flex-col overflow-hidden"
           >
-            <AccountView
-              sharedAccountData={accountData}
-              onNavigateToNotes={() => setAccountHubTab("notes")}
-              onOpenCreator={handleCreateNote}
-            />
-          </TabsContent>
+            {/* Tab triggers — sticky top bar with consistent spacing */}
+            <div className="shrink-0 border-b border-border/60 bg-background/95 backdrop-blur-md px-6 md:px-8">
+              <TabsList className="h-10 bg-transparent gap-1 p-0">
+                <TabsTrigger
+                  value="overview"
+                  className={cn(
+                    "h-10 px-4 gap-2 rounded-none border-b-2 border-transparent bg-transparent",
+                    "data-[state=active]:border-rose-500 data-[state=active]:text-rose-500",
+                    "data-[state=active]:shadow-none data-[state=active]:bg-transparent",
+                    "text-muted-foreground hover:text-foreground transition-colors text-sm"
+                  )}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                  账号概览
+                </TabsTrigger>
+                <TabsTrigger
+                  value="notes"
+                  className={cn(
+                    "h-10 px-4 gap-2 rounded-none border-b-2 border-transparent bg-transparent",
+                    "data-[state=active]:border-rose-500 data-[state=active]:text-rose-500",
+                    "data-[state=active]:shadow-none data-[state=active]:bg-transparent",
+                    "text-muted-foreground hover:text-foreground transition-colors text-sm"
+                  )}
+                >
+                  <FileText className="w-4 h-4" />
+                  笔记管理
+                </TabsTrigger>
+                <TabsTrigger
+                  value="persona"
+                  className={cn(
+                    "h-10 px-4 gap-2 rounded-none border-b-2 border-transparent bg-transparent",
+                    "data-[state=active]:border-rose-500 data-[state=active]:text-rose-500",
+                    "data-[state=active]:shadow-none data-[state=active]:bg-transparent",
+                    "text-muted-foreground hover:text-foreground transition-colors text-sm"
+                  )}
+                >
+                  <Theater className="w-4 h-4" />
+                  人设管理
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-          <TabsContent
-            value="notes"
-            className="flex-1 mt-0 overflow-y-auto data-[state=inactive]:hidden"
-          >
-            <ContentView
-              sharedAccountData={accountData}
-              onOpenCreator={handleCreateNote}
-            />
-          </TabsContent>
+            {/* Tab content — each scrolls independently */}
+            <TabsContent
+              value="overview"
+              className="flex-1 mt-0 overflow-y-auto data-[state=inactive]:hidden"
+            >
+              <AccountView
+                sharedAccountData={accountData}
+                onNavigateToNotes={() => setAccountHubTab("notes")}
+                onOpenCreator={handleCreateNote}
+              />
+            </TabsContent>
 
-          <TabsContent
-            value="persona"
-            className="flex-1 mt-0 overflow-y-auto data-[state=inactive]:hidden"
-          >
-            <PersonaView
-              sharedAccountData={accountData}
-              onOpenCreator={handleCreateNote}
-            />
-          </TabsContent>
-        </Tabs>
+            <TabsContent
+              value="notes"
+              className="flex-1 mt-0 overflow-y-auto data-[state=inactive]:hidden"
+            >
+              <ContentView
+                sharedAccountData={accountData}
+                onOpenCreator={handleCreateNote}
+              />
+            </TabsContent>
+
+            <TabsContent
+              value="persona"
+              className="flex-1 mt-0 overflow-y-auto data-[state=inactive]:hidden"
+            >
+              <PersonaView
+                sharedAccountData={accountData}
+                onOpenCreator={handleCreateNote}
+              />
+            </TabsContent>
+          </Tabs>
+        )}
 
         {/* AI Creator Sheet — opened by "+ 新建笔记" button anywhere */}
         <Sheet open={creatorSheetOpen} onOpenChange={setCreatorSheetOpen}>
@@ -373,36 +402,6 @@ export function AccountHubView() {
             existingData={selectedAccount as unknown as Record<string, unknown>}
             onSuccess={() => { handleScrapeDialogSuccess(); }}
           />
-        )}
-
-        {/* Empty state when no accounts exist */}
-        {accountData.accounts.length === 0 && !accountData.loading && (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <EmptyState
-              icon={Users}
-              title="还没有添加账号"
-              description="添加你的第一个小红书账号，开始数据分析"
-              actionLabel="添加账号"
-              onAction={() => setAddAccountDialogOpen(true)}
-              demoLabel="加载演示数据"
-              onDemoAction={async () => {
-                try {
-                  const res = await fetch("/api/demo/seed", {
-                    method: "POST",
-                  });
-                  const data = await res.json();
-                  if (data.success) {
-                    toast.success("演示数据加载成功！");
-                    await accountData.refreshAccounts();
-                  } else {
-                    toast.error(data.error || "加载演示数据失败");
-                  }
-                } catch {
-                  toast.error("网络错误，请重试");
-                }
-              }}
-            />
-          </div>
         )}
       </div>
     </AccountHubContext.Provider>

@@ -171,3 +171,44 @@ Stage Summary:
 - Calendar shows both posts and drafts, clicking a date shows date detail panel
 - Posts without publishDate appear on calendar using scrapedAt date
 - "今天" button now works properly
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Fix 3 user-reported issues: duplicate empty state, scraper 5-note limit, data insights fake data
+
+Work Log:
+- Issue 1: Fixed duplicate "还没添加账号" empty state in account-hub-view.tsx
+  - When accounts.length === 0, now shows ONLY EmptyState (no tabs)
+  - Previously both the tab content AND EmptyState were shown simultaneously
+- Issue 2: Fixed XHS scraper to scrape ALL notes (not just first 5)
+  - Removed MAX_DETAIL_NOTES = 5 limit in profile-with-details endpoint
+  - Now scrapes details for ALL notes found on profile page
+  - Added videoUrl field to PostData interface and extraction logic
+  - Added POST /api/scrape/notes-batch endpoint for incremental detail scraping
+  - Added videoUrl field to Prisma schema (XhsPost model), ran db:push
+  - Updated scrape API route to include videoUrl in upsert logic
+  - Updated posts API route to return videoUrl
+  - Updated XhsPostInfo type to include videoUrl
+  - Added video badge (Play icon) to PostCard component
+  - Added video player to note detail dialog
+  - Improved image display in note detail: shows count, click to open original, lazy loading
+- Issue 3: Rewrote analytics view to only show data derivable from scraped info
+  - Removed 互动漏斗 (used fake impression/view numbers)
+  - Removed 受众画像 (age, gender, interest, heatmap - ALL simulated)
+  - Removed 竞品对标 (industry avg, top 10% - ALL simulated)
+  - New 3-tab structure with REAL data only:
+    - 互动概览: real engagement stats, composition chart, top 5 posts
+    - 内容分布: real tag distribution from post.tags[], post type comparison
+    - 发布规律: real posting frequency by weekday/hour from publishDate
+  - All fake/simulated data generators removed
+- Restarted xhs-scraper microservice with new code
+- Ran bun run lint - passed
+- Verified all services running (Next.js:3000, file-server:3001, xhs-scraper:3002)
+
+Stage Summary:
+- Fixed duplicate empty state when no accounts exist
+- Scraper now fetches ALL note details (images, videos, tags, engagement) - no more 5-note limit
+- Added videoUrl support throughout the stack (schema → API → UI)
+- Data insights completely rewritten with only real scraped data
+- 3 analytics tabs: 互动概览, 内容分布, 发布规律 (all from real data)

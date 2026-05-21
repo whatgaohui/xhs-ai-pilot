@@ -58,6 +58,7 @@ interface PostData {
   content: string;
   coverUrl: string;
   imageUrls: string[];
+  videoUrl: string;
   likes: number;
   comments: number;
   collects: number;
@@ -348,6 +349,7 @@ async function scrapeProfileViaHTML(
         content: "", // Detail requires separate request
         coverUrl: pickCoverUrl(nc.cover),
         imageUrls: [],
+        videoUrl: "",
         likes: parseInteractionCount(nc.interactInfo?.likedCount),
         comments: 0,
         collects: 0,
@@ -527,10 +529,12 @@ async function scrapeNoteViaHTML(
     .map((t) => t.name || "")
     .filter((name) => name !== "");
 
-  // Determine post type
+  // Determine post type and extract video URL
   let postType = n.type || "normal";
+  let videoUrl = "";
   if (n.video?.consumer?.originVideoKey) {
     postType = "video";
+    videoUrl = `https://sns-video-bd.xhscdn.com/${n.video.consumer.originVideoKey}`;
   }
 
   const postData: PostData = {
@@ -539,6 +543,7 @@ async function scrapeNoteViaHTML(
     content: n.desc || "",
     coverUrl: imageUrls.length > 0 ? imageUrls[0] : "",
     imageUrls,
+    videoUrl,
     likes: parseInteractionCount(n.interactInfo?.likedCount),
     comments: parseInteractionCount(n.interactInfo?.commentCount),
     collects: parseInteractionCount(n.interactInfo?.collectCount),
@@ -643,6 +648,40 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Batch note details scrape (for incremental scraping)
+  if (req.method === "POST" && url === "/api/scrape/notes-batch") {
+    try {
+      const raw = await readBody(req);
+      const body = JSON.parse(raw) as { notes?: Array<{ noteId: string; xsecToken?: string }>; cookies?: string };
+      if (!body.notes || !Array.isArray(body.notes) || !body.cookies) {
+        sendJson(res, 400, { success: false, error: "notes 数组和 cookies 必填" });
+        return;
+      }
+      const results: PostData[] = [];
+      const warnings: string[] = [];
+      for (let i = 0; i < body.notes.length; i++) {
+        const { noteId, xsecToken } = body.notes[i];
+        try {
+          if (i > 0) await delay(RATE_LIMIT_DELAY_MS);
+          const detail = await scrapeNoteViaHTML(noteId, xsecToken || "", body.cookies);
+          if (detail) {
+            results.push(detail);
+          } else {
+            warnings.push(`笔记 ${noteId} 详情抓取失败`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          warnings.push(`笔记 ${noteId} 详情抓取出错: ${msg}`);
+        }
+      }
+      console.log(`[scrape-notes-batch] OK: ${results.length}/${body.notes.length} details scraped, ${warnings.length} warnings`);
+      sendJson(res, 200, { success: true, data: { posts: results, warnings } });
+    } catch (err) {
+      sendJson(res, 500, { success: false, error: err instanceof Error ? err.message : "unknown error" });
+    }
+    return;
+  }
+
   // Profile scrape with note details
   if (req.method === "POST" && url === "/api/scrape/profile-with-details") {
     try {
@@ -660,9 +699,8 @@ const server = createServer(async (req, res) => {
         return;
       }
 
-      // Step 2: Scrape details for up to 5 notes
-      const MAX_DETAIL_NOTES = 5;
-      const notesToScrape = profileResult.posts.slice(0, MAX_DETAIL_NOTES);
+      // Step 2: Scrape details for ALL notes (with rate limiting)
+      const notesToScrape = profileResult.posts;
       const detailWarnings: string[] = [];
 
       for (let i = 0; i < notesToScrape.length; i++) {
@@ -706,11 +744,6 @@ const server = createServer(async (req, res) => {
 
       // Merge warnings
       profileResult.warnings.push(...detailWarnings);
-      if (notesToScrape.length < profileResult.posts.length) {
-        profileResult.warnings.push(
-          `仅抓取了前 ${MAX_DETAIL_NOTES} 篇笔记详情，剩余 ${profileResult.posts.length - MAX_DETAIL_NOTES} 篇仅含基本信息`
-        );
-      }
 
       console.log(
         `[scrape-profile-with-details] OK: ${profileResult.account.nickname || "(no name)"}, ` +

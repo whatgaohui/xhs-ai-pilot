@@ -19,6 +19,7 @@ import {
   Sparkles,
   FileText,
   BookOpen,
+  Play,
 } from "lucide-react";
 import type { XhsPostInfo } from "@/types";
 
@@ -223,6 +224,13 @@ export function PostCard({
 
         {/* Top-right badges row */}
         <div className="absolute top-2 right-2 flex items-center gap-1.5">
+          {/* Video badge */}
+          {post.postType === "video" && (
+            <div className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+              <Play className="w-3 h-3 fill-white" />
+              视频
+            </div>
+          )}
           {/* AI Score badge with golden glow */}
           {post.aiScore > 0 && (
             <div className="relative">

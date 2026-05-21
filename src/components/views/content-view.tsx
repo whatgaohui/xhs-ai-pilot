@@ -59,6 +59,7 @@ import {
   Tag,
   BookOpen,
   Palette,
+  Play,
 } from "lucide-react";
 
 type SortOption = "date" | "likes" | "comments" | "collects" | "aiScore";
@@ -2366,18 +2367,37 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                 {selectedPost.imageUrls && selectedPost.imageUrls.length > 0 && (
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
-                      图片
+                      图片（{selectedPost.imageUrls.length}张）
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       {selectedPost.imageUrls.map((url, i) => (
-                        <div key={i} className="aspect-square rounded-xl overflow-hidden bg-muted">
+                        <div key={i} className="aspect-square rounded-xl overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(url, '_blank')}>
                           <img
                             src={url}
                             alt={`图片 ${i + 1}`}
                             className="w-full h-full object-cover"
+                            loading="lazy"
                           />
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Video */}
+                {selectedPost.videoUrl && (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                      <Play className="w-3 h-3" />
+                      视频
+                    </p>
+                    <div className="rounded-xl overflow-hidden bg-black">
+                      <video
+                        src={selectedPost.videoUrl}
+                        controls
+                        className="w-full max-h-[400px]"
+                        preload="metadata"
+                      />
                     </div>
                   </div>
                 )}
