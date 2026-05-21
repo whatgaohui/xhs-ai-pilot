@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── 小红书账号 ──────────────────────────────────────────────────────────
+
+model XhsAccount {
+  id            String   @id @default(cuid())
+  xhsUrl        String   @unique  // 小红书主页链接
+  xhsId         String   @default("")  // 小红书用户ID
+  nickname      String   @default("")
+  avatarUrl     String   @default("")
+  bio           String   @default("")  // 简介
+  location      String   @default("")
+  gender        String   @default("")
+  
+  // 账号数据
+  followers     Int      @default(0)  // 粉丝数
+  following     Int      @default(0)  // 关注数
+  likedCollected Int     @default(0)  // 获赞与收藏
+  notesCount    Int      @default(0)  // 笔记数
+  
+  // 采集状态
+  status        String   @default("idle") // idle, scraping, success, error
+  lastScrapedAt DateTime?
+  errorMessage  String   @default("")
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  posts         XhsPost[]
+  persona       XhsPersona?
+  drafts        ContentDraft[]
+}
+
+// ─── 小红书笔记 ──────────────────────────────────────────────────────────
+
+model XhsPost {
+  id            String   @id @default(cuid())
+  accountId     String
+  account       XhsAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  
+  // 笔记基本信息
+  xhsPostId     String   @default("")  // 小红书笔记ID
+  title         String   @default("")
+  content       String   @default("")  // 正文
+  coverUrl      String   @default("")  // 封面图
+  imageUrls     String   @default("[]") // 图片URL列表 JSON
+  postType      String   @default("normal") // normal, video
+  
+  // 互动数据
+  likes         Int      @default(0)
+  comments      Int      @default(0)
+  collects      Int      @default(0)  // 收藏数
+  shares        Int      @default(0)  // 分享数
+  
+  // 内容分析
+  tags          String   @default("[]") // 标签 JSON
+  category      String   @default("")  // 内容分类
+  aiScore       Float    @default(0)   // AI质量评分
+  aiAnalysis    String   @default("")  // AI分析摘要
+  
+  publishDate   String   @default("")  // 发布日期 "2025-01-15"
+  scrapedAt     DateTime @default(now())
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([accountId])
+  @@index([publishDate])
+}
+
+// ─── 人设管理 ─────────────────────────────────────────────────────────────
+
+model XhsPersona {
+  id            String   @id @default(cuid())
+  accountId     String   @unique
+  account       XhsAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  
+  // 人设核心
+  name          String   @default("")  // 人设名称/定位
+  tone          String   @default("warm") // warm, professional, witty, casual, elegant
+  writingStyle  String   @default("balanced") // concise, detailed, emotional, balanced
+  
+  // 内容策略
+  targetAudience String  @default("")  // 目标受众
+  contentThemes String   @default("[]") // 内容主题 JSON
+  keywords      String   @default("[]") // 核心关键词 JSON
+  avoidTopics   String   @default("[]") // 避免话题 JSON
+  
+  // 参考描述
+  referenceDesc String   @default("")  // 人设描述/品牌调性描述
+  signaturePhrase String @default("")  // 标志性用语
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ─── AI 模型供应商 ───────────────────────────────────────────────────────
+
+model AIProvider {
+  id            String   @id @default(cuid())
+
+  // Identity
+  name          String                          // 用户可见名称, e.g. "智谱 GLM-4.5"
+  type          String                          // "zhipu" | "deepseek" | "openai" | "ollama" | "custom"
+
+  // Connection (OpenAI compatible)
+  baseUrl       String                          // e.g. https://open.bigmodel.cn/api/paas/v4
+  apiKey        String   @default("")           // AES-256 encrypted, may be empty for Ollama
+  model         String                          // e.g. glm-4-flash, deepseek-chat, llama3.2
+
+  // Capabilities
+  supportsChat       Boolean @default(true)
+  supportsWebSearch  Boolean @default(false)   // 只有智谱原生支持
+
+  // State
+  isDefault     Boolean  @default(false)        // 当前默认 provider
+  isActive      Boolean  @default(true)         // 是否启用
+  priority      Int      @default(0)            // fallback 顺序, 大的优先
+  lastTestedAt  DateTime?
+  lastTestStatus String  @default("")           // "success" | "error" | ""
+  lastTestError String   @default("")
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ─── AI创作草稿 ──────────────────────────────────────────────────────────
+
+model ContentDraft {
+  id            String   @id @default(cuid())
+  accountId     String
+  account       XhsAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  
+  // 草稿内容
+  title         String   @default("")
+  content       String   @default("")
+  coverPrompt   String   @default("")  // AI封面图提示词
+  tags          String   @default("[]") // 标签 JSON
+  
+  // 创作状态
+  status        String   @default("draft") // draft, polishing, ready, published
+  
+  // AI元数据
+  aiModel       String   @default("")
+  aiSuggestions String   @default("")  // AI建议 JSON
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([accountId])
+  @@index([status])
+}
+
+// ─── 素材管理 ──────────────────────────────────────────────────────────
+
+model MediaAsset {
+  id            String   @id @default(cuid())
+
+  // 文件信息
+  type          String   @default("image")  // "image" | "video" | "text"
+  fileName      String                       // 存储文件名 (UUID-based)
+  originalName  String   @default("")        // 用户上传时的原始文件名
+  url           String                       // 访问路径 /uploads/xxx.jpg
+  thumbnail     String   @default("")        // 缩略图路径
+  fileSize      Int      @default(0)         // 文件大小 (bytes)
+  mimeType      String   @default("")        // MIME type
+  width         Int      @default(0)         // 图片宽度
+  height        Int      @default(0)         // 图片高度
+
+  // 内容元数据
+  category      String   @default("")        // 用户分类
+  tags          String   @default("[]")      // 用户标签 JSON
+  description   String   @default("")        // 用户描述
+
+  // AI 分析
+  aiDescription String   @default("")        // AI 生成的描述
+  aiTags        String   @default("[]")      // AI 生成的标签 JSON
+  aiAnalyzed    Boolean  @default(false)      // 是否已分析
+
+  // 来源追踪
+  source        String   @default("upload")  // upload | ai-generated | scraped
+  accountId     String   @default("")        // 关联账号 (scraped 时)
+
+  // 文本素材专用
+  textContent   String   @default("")        // 文本片段内容
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([type])
+  @@index([category])
+  @@index([source])
+  @@index([createdAt])
+}
