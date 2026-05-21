@@ -62,6 +62,7 @@ export async function PATCH(
       'xhsId',
       'avatarUrl',
       'status',
+      'cookies',
     ];
     const updateData: Record<string, unknown> = {};
     for (const field of allowedFields) {

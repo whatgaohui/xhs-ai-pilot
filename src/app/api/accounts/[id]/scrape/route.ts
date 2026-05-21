@@ -99,7 +99,13 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}));
-    const cookies = String((body as { cookies?: string }).cookies || "");
+    let cookies = String((body as { cookies?: string }).cookies || "");
+    
+    // If no cookies provided in request, try using stored cookies from account record
+    if (!cookies && account.cookies) {
+      cookies = account.cookies;
+    }
+    
     if (!cookies) {
       return NextResponse.json(
         {

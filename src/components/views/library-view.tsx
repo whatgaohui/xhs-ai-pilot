@@ -74,11 +74,14 @@ import {
   ChevronDown,
   FileUp,
   Type,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { getMediaUrl } from "@/lib/media-url";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -256,6 +259,12 @@ export function LibraryView() {
 
   // Analyze
   const [analyzing, setAnalyzing] = useState(false);
+
+  // Batch operations
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
 
   // --- Debounced search ---
   useEffect(() => {
@@ -716,6 +725,27 @@ export function LibraryView() {
             <SelectItem value="size">大小</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Batch mode toggle */}
+        <Button
+          variant={batchMode ? "default" : "outline"}
+          size="sm"
+          className={cn(
+            "gap-1.5 h-9",
+            batchMode
+              ? "bg-rose-600 text-white hover:bg-rose-700 border-0"
+              : "border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30"
+          )}
+          onClick={() => {
+            setBatchMode(!batchMode);
+            if (batchMode) {
+              setSelectedIds(new Set());
+            }
+          }}
+        >
+          <CheckSquare className="w-4 h-4" />
+          {batchMode ? "退出批量" : "批量选择"}
+        </Button>
       </div>
 
       {/* ── 3. Upload Zone ────────────────────────────────────────────── */}
@@ -816,6 +846,19 @@ export function LibraryView() {
               asset={asset}
               onClick={() => openDetail(asset)}
               onDelete={() => confirmDelete(asset)}
+              batchMode={batchMode}
+              isSelected={selectedIds.has(asset.id)}
+              onToggleSelect={() => {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(asset.id)) {
+                    next.delete(asset.id);
+                  } else {
+                    next.add(asset.id);
+                  }
+                  return next;
+                });
+              }}
             />
           ))}
         </div>
@@ -823,7 +866,11 @@ export function LibraryView() {
         /* ── 5. Asset List View ──────────────────────────────────────── */
         <div className="rounded-xl border border-border/60 overflow-hidden">
           {/* Table header */}
-          <div className="grid grid-cols-[40px_1fr_60px_80px_80px_80px_60px_80px] gap-2 px-4 py-2 bg-muted/40 text-xs font-medium text-muted-foreground border-b border-border/60">
+          <div className={cn(
+            "grid gap-2 px-4 py-2 bg-muted/40 text-xs font-medium text-muted-foreground border-b border-border/60",
+            batchMode ? "grid-cols-[32px_32px_1fr_60px_80px_80px_80px_60px_80px]" : "grid-cols-[40px_1fr_60px_80px_80px_80px_60px_80px]"
+          )}>
+            {batchMode && <span />}
             <span />
             <span>名称</span>
             <span>类型</span>
@@ -839,6 +886,19 @@ export function LibraryView() {
               asset={asset}
               onClick={() => openDetail(asset)}
               onDelete={() => confirmDelete(asset)}
+              batchMode={batchMode}
+              isSelected={selectedIds.has(asset.id)}
+              onToggleSelect={() => {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(asset.id)) {
+                    next.delete(asset.id);
+                  } else {
+                    next.add(asset.id);
+                  }
+                  return next;
+                });
+              }}
             />
           ))}
         </div>
@@ -1237,6 +1297,115 @@ export function LibraryView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── 13. Batch Action Toolbar ───────────────────────────────────── */}
+      {batchMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl border border-rose-200 bg-background/95 backdrop-blur-md shadow-xl px-5 py-3 dark:border-rose-800">
+          <span className="text-sm font-medium text-rose-600 dark:text-rose-400">
+            已选择 {selectedIds.size} 项
+          </span>
+          <Separator orientation="vertical" className="h-5" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 h-8 text-xs"
+            onClick={() => {
+              if (selectedIds.size === sortedAssets.length) {
+                setSelectedIds(new Set());
+              } else {
+                setSelectedIds(new Set(sortedAssets.map((a) => a.id)));
+              }
+            }}
+          >
+            {selectedIds.size === sortedAssets.length ? (
+              <>
+                <Square className="w-3.5 h-3.5" />
+                取消全选
+              </>
+            ) : (
+              <>
+                <CheckSquare className="w-3.5 h-3.5" />
+                全选
+              </>
+            )}
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="gap-1.5 h-8 text-xs"
+            onClick={() => setBatchDeleteDialogOpen(true)}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            批量删除
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 h-8 text-xs"
+            onClick={() => {
+              setBatchMode(false);
+              setSelectedIds(new Set());
+            }}
+          >
+            取消
+          </Button>
+        </div>
+      )}
+
+      {/* ── 14. Batch Delete Confirmation ──────────────────────────────── */}
+      <AlertDialog open={batchDeleteDialogOpen} onOpenChange={setBatchDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认批量删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除选中的{" "}
+              <span className="font-medium text-foreground">{selectedIds.size}</span>{" "}
+              个素材吗？此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={batchDeleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setBatchDeleting(true);
+                let successCount = 0;
+                let failCount = 0;
+                const ids = Array.from(selectedIds);
+                for (const id of ids) {
+                  try {
+                    const res = await fetch(`/api/media/${id}`, { method: "DELETE" });
+                    if (!res.ok) throw new Error();
+                    successCount++;
+                  } catch {
+                    failCount++;
+                  }
+                }
+                setBatchDeleting(false);
+                setBatchDeleteDialogOpen(false);
+                setBatchMode(false);
+                setSelectedIds(new Set());
+                if (failCount === 0) {
+                  toast.success(`成功删除 ${successCount} 个素材`);
+                } else {
+                  toast.error(`${successCount} 个删除成功，${failCount} 个删除失败`);
+                }
+                fetchAssets();
+              }}
+              disabled={batchDeleting}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {batchDeleting ? (
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  删除中...
+                </span>
+              ) : (
+                "删除"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -1247,16 +1416,48 @@ function AssetCard({
   asset,
   onClick,
   onDelete,
+  batchMode,
+  isSelected,
+  onToggleSelect,
 }: {
   asset: MediaAssetInfo;
   onClick: () => void;
   onDelete: () => void;
+  batchMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   return (
     <div
-      className="card-elevated group cursor-pointer relative overflow-hidden"
-      onClick={onClick}
+      className={cn(
+        "card-elevated group cursor-pointer relative overflow-hidden transition-all",
+        batchMode && isSelected && "ring-2 ring-rose-500 border-rose-500 shadow-md"
+      )}
+      onClick={() => {
+        if (batchMode) {
+          onToggleSelect?.();
+        } else {
+          onClick();
+        }
+      }}
     >
+      {/* Batch checkbox overlay */}
+      {batchMode && (
+        <div className="absolute top-2 right-2 z-10">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => onToggleSelect?.()}
+            onClick={(e) => e.stopPropagation()}
+            className={cn(
+              "h-5 w-5 rounded-md border-2 transition-all",
+              isSelected
+                ? "bg-rose-500 border-rose-500 text-white"
+                : "bg-white/80 border-white/80 hover:border-rose-400 dark:bg-black/50 dark:border-white/30"
+            )}
+          />
+        </div>
+      )}
+
       {/* Thumbnail area */}
       <div className="aspect-square rounded-t-xl bg-muted overflow-hidden relative">
         {asset.type === "image" && (asset.thumbnail || asset.url) && (
@@ -1371,16 +1572,45 @@ function AssetRow({
   asset,
   onClick,
   onDelete,
+  batchMode,
+  isSelected,
+  onToggleSelect,
 }: {
   asset: MediaAssetInfo;
   onClick: () => void;
   onDelete: () => void;
+  batchMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   return (
     <div
-      className="grid grid-cols-[40px_1fr_60px_80px_80px_80px_60px_80px] gap-2 px-4 py-2.5 items-center border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer group"
-      onClick={onClick}
+      className={cn(
+        "grid gap-2 px-4 py-2.5 items-center border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer group",
+        batchMode && isSelected && "bg-rose-50/60 dark:bg-rose-950/20 border-l-2 border-l-rose-500",
+        batchMode ? "grid-cols-[32px_32px_1fr_60px_80px_80px_80px_60px_80px]" : "grid-cols-[40px_1fr_60px_80px_80px_80px_60px_80px]"
+      )}
+      onClick={() => {
+        if (batchMode) {
+          onToggleSelect?.();
+        } else {
+          onClick();
+        }
+      }}
     >
+      {/* Batch checkbox */}
+      {batchMode && (
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onToggleSelect?.()}
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            "h-4 w-4 rounded transition-all",
+            isSelected && "bg-rose-500 border-rose-500 text-white"
+          )}
+        />
+      )}
+
       {/* Thumbnail */}
       <div className="w-8 h-8 rounded-md bg-muted overflow-hidden shrink-0">
         {asset.type === "image" && (asset.thumbnail || asset.url) && (

@@ -25,6 +25,8 @@ model XhsAccount {
   likedCollected Int     @default(0)  // 获赞与收藏
   notesCount    Int      @default(0)  // 笔记数
   
+  cookies       String   @default("")  // 浏览器Cookie（加密存储）
+  
   // 采集状态
   status        String   @default("idle") // idle, scraping, success, error
   lastScrapedAt DateTime?

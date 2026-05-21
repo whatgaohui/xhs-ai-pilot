@@ -7,7 +7,7 @@
  * - Account selector dropdown (single source of truth)
  * - 4 metric cards (粉丝/获赞/笔记/关注) always visible
  * - Account avatar + nickname + bio display
- * - Quick actions (刷新数据, 编辑账号, + 新建笔记)
+ * - Quick actions (刷新数据, 编辑账号, Cookie管理, + 新建笔记)
  * - Sticky below topbar
  */
 
@@ -50,6 +50,7 @@ import {
   MoreHorizontal,
   Trash2,
   PenLine,
+  Cookie,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────
@@ -67,6 +68,8 @@ interface AccountHubHeaderProps {
   onDeleteAccount: () => void;
   /** Callback to open manual data dialog */
   onManualData: () => void;
+  /** Callback to open edit account dialog focused on cookie section */
+  onEditCookies: () => void;
   /** Whether a scrape is in progress */
   isScraping?: boolean;
   /** Whether an account delete is in progress */
@@ -129,6 +132,7 @@ export function AccountHubHeader({
   onRefreshData,
   onDeleteAccount,
   onManualData,
+  onEditCookies,
   isScraping = false,
   isDeleting = false,
 }: AccountHubHeaderProps) {
@@ -173,6 +177,9 @@ export function AccountHubHeader({
         return "待采集";
     }
   };
+
+  // Check if account has stored cookies
+  const hasCookies = !!(selectedAccount?.cookies);
 
   // ─── Render ──────────────────────────────────────────────────────────
 
@@ -302,20 +309,53 @@ export function AccountHubHeader({
 
             {/* Right: Quick Actions */}
             <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-border text-xs hidden sm:inline-flex"
-                onClick={onRefreshData}
-                disabled={isScraping}
-              >
-                {isScraping ? (
-                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-3.5 h-3.5 mr-1" />
-                )}
-                刷新
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={cn(
+                      "border-border text-xs hidden sm:inline-flex",
+                      !hasCookies && "border-amber-300 dark:border-amber-700"
+                    )}
+                    onClick={onRefreshData}
+                    disabled={isScraping}
+                  >
+                    {isScraping ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                    )}
+                    刷新
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {hasCookies
+                    ? "使用已存储的 Cookie 刷新数据"
+                    : "刷新需要 Cookie，请先添加 Cookie"}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-border text-xs hidden md:inline-flex"
+                    onClick={onEditCookies}
+                  >
+                    <Cookie className="w-3.5 h-3.5 mr-1" />
+                    Cookie
+                    {hasCookies ? (
+                      <span className="ml-1 w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    ) : (
+                      <span className="ml-1 w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {hasCookies ? "管理已存储的 Cookie" : "添加 Cookie 以启用数据刷新"}
+                </TooltipContent>
+              </Tooltip>
               <Button
                 size="sm"
                 variant="outline"
@@ -353,6 +393,10 @@ export function AccountHubHeader({
                       )}
                     />
                     刷新数据
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onEditCookies}>
+                    <Cookie className="w-4 h-4 mr-2" />
+                    Cookie 管理
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={onEditAccount}>
                     <Pencil className="w-4 h-4 mr-2" />

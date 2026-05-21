@@ -83,6 +83,7 @@ export function AccountHubView() {
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
   const [scraping, setScraping] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editFocusCookies, setEditFocusCookies] = useState(false);
 
   // ─── Header Action Handlers ──────────────────────────────────────────
 
@@ -90,9 +91,23 @@ export function AccountHubView() {
     if (!accountData.selectedAccountId) return;
     setScraping(true);
     try {
+      // Use stored cookies as fallback by not sending cookies in body
+      // The scrape API will use stored cookies if no cookies are provided
+      const selectedAccount = accountData.selectedAccount;
+      const body: { cookies?: string } = {};
+      // If no stored cookies, we need to prompt the user
+      if (!selectedAccount?.cookies) {
+        toast.error("请先添加 Cookie 再刷新数据");
+        setScraping(false);
+        setEditFocusCookies(true);
+        setEditDialogOpen(true);
+        return;
+      }
+      // Send stored cookies explicitly so the API uses them
+      body.cookies = selectedAccount.cookies;
       const res = await fetch(
         `/api/accounts/${accountData.selectedAccountId}/scrape`,
-        { method: "POST" }
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
       );
       const data = await res.json();
       if (data.success) {
@@ -110,6 +125,12 @@ export function AccountHubView() {
   }, [accountData]);
 
   const handleEditAccount = useCallback(() => {
+    setEditFocusCookies(false);
+    setEditDialogOpen(true);
+  }, []);
+
+  const handleEditCookies = useCallback(() => {
+    setEditFocusCookies(true);
     setEditDialogOpen(true);
   }, []);
 
@@ -172,6 +193,7 @@ export function AccountHubView() {
           onRefreshData={handleRefreshData}
           onDeleteAccount={handleDeleteAccount}
           onManualData={handleManualData}
+          onEditCookies={handleEditCookies}
           isScraping={scraping}
           isDeleting={deleting}
         />
@@ -323,6 +345,7 @@ export function AccountHubView() {
           open={editDialogOpen}
           onOpenChange={setEditDialogOpen}
           onSuccess={handleEditSuccess}
+          focusCookies={editFocusCookies}
         />
 
         {/* Cookie Input / Scrape Dialog (shared from header) */}

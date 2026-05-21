@@ -12,6 +12,7 @@ export interface XhsAccountInfo {
   following: number;
   likedCollected: number;
   notesCount: number;
+  cookies?: string;
   status: 'idle' | 'scraping' | 'success' | 'partial' | 'error';
   lastScrapedAt: string | null;
   errorMessage?: string;

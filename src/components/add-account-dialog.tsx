@@ -89,7 +89,7 @@ export function AddAccountDialog() {
       const createRes = await fetch("/api/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ xhsUrl: url.trim() }),
+        body: JSON.stringify({ xhsUrl: url.trim(), cookies: cookies.trim() }),
       });
       const createData = await createRes.json();
       if (!createData.success) {
@@ -109,6 +109,16 @@ export function AddAccountDialog() {
 
       if (scrapeData.success) {
         const data = scrapeData.data;
+        // Save cookies to the account record after successful scrape
+        try {
+          await fetch(`/api/accounts/${account.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cookies: cookies.trim() }),
+          });
+        } catch {
+          // Non-critical: cookie save failure shouldn't block the flow
+        }
         setResult({
           nickname: data.account?.nickname,
           followers: data.account?.followers,

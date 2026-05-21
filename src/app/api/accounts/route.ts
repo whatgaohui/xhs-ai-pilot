@@ -33,7 +33,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { xhsUrl } = body;
+    const { xhsUrl, cookies } = body;
 
     if (!xhsUrl || typeof xhsUrl !== 'string') {
       return NextResponse.json(
@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
       data: {
         xhsUrl,
         status: 'idle',
+        ...(cookies ? { cookies } : {}),
       },
     }));
 
