@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -497,12 +497,12 @@ export function CookieInputDialog({
       </div>
 
       {/* Warning */}
-      <Alert className="border-amber-200 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/20">
-        <AlertTriangle className="w-4 h-4 text-amber-500" />
-        <AlertDescription className="text-xs text-amber-700 dark:text-amber-400">
+      <div className="relative w-full rounded-lg border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-amber-500">
+        <AlertTriangle className="w-4 h-4 text-amber-500 absolute left-4 top-4" />
+        <div className="pl-7 text-xs text-amber-700 dark:text-amber-400">
           搜索采集获取的数据可能不完整，建议使用Cookie采集获得更全面的数据
-        </AlertDescription>
-      </Alert>
+        </div>
+      </div>
 
       <div className="flex items-center justify-between pt-2">
         <Button variant="outline" onClick={() => setStep("method")}>
@@ -690,17 +690,17 @@ export function CookieInputDialog({
 
       {/* Warnings */}
       {resultData?.warnings && resultData.warnings.length > 0 && (
-        <Alert className="border-amber-200 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/20">
-          <AlertTriangle className="w-4 h-4 text-amber-500" />
-          <AlertDescription className="text-xs text-amber-700 dark:text-amber-400">
+        <div className="relative w-full rounded-lg border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+          <AlertTriangle className="w-4 h-4 text-amber-500 absolute left-4 top-4" />
+          <div className="pl-7 text-xs text-amber-700 dark:text-amber-400">
             <p className="font-medium mb-1">采集提示</p>
             <ul className="list-disc ml-4 space-y-0.5">
               {resultData.warnings.map((w, i) => (
                 <li key={i}>{w}</li>
               ))}
             </ul>
-          </AlertDescription>
-        </Alert>
+          </div>
+        </div>
       )}
 
       {/* Actions */}
