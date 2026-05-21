@@ -180,11 +180,11 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg glass-card border-gradient overflow-hidden">
+      <DialogContent className="sm:max-w-lg glass-card border-gradient flex flex-col max-h-[90vh]">
         {/* Gradient border top */}
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-xhs via-rose-400 to-amber-400" />
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-xhs via-rose-400 to-amber-400 shrink-0" />
 
-        <DialogHeader>
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Download className="w-5 h-5 text-xhs" />
             导出数据
@@ -194,6 +194,8 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
+        {/* Scrollable content area */}
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
         {!exportComplete ? (
           <div className="space-y-5 py-2">
             {/* Format Selection */}
@@ -474,6 +476,7 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
             </div>
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );

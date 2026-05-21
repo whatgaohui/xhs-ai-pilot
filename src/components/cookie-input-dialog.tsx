@@ -281,7 +281,7 @@ export function CookieInputDialog({
             )}>
               <Cookie className="w-5 h-5" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-semibold">Cookie采集</p>
                 <Badge variant="secondary" className="text-[10px] bg-xhs-light text-xhs border-0">
@@ -321,7 +321,7 @@ export function CookieInputDialog({
             )}>
               <Search className="w-5 h-5" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold">搜索采集</p>
               <p className="text-xs text-muted-foreground mt-1">
                 通过搜索引擎获取公开数据，无需Cookie但数据可能不完整
@@ -356,7 +356,7 @@ export function CookieInputDialog({
             )}>
               <PenLine className="w-5 h-5" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold">手动输入</p>
               <p className="text-xs text-muted-foreground mt-1">
                 手动填写账号和笔记信息
@@ -413,9 +413,9 @@ export function CookieInputDialog({
             setCookieValidated(null);
           }}
           placeholder="粘贴从小红书复制的Cookie值..."
-          className="min-h-[100px] text-xs font-mono"
+          className="min-h-[100px] max-h-[200px] text-xs font-mono break-all overflow-auto"
         />
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             {cookieValidated === true && (
               <span className="flex items-center gap-1 text-xs text-emerald-600">
@@ -637,7 +637,7 @@ export function CookieInputDialog({
               )}
             </div>
             {/* Step info */}
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <p className={cn(
                 "text-sm font-medium transition-colors",
                 pStep.status === "active" && "text-xhs",
@@ -672,8 +672,8 @@ export function CookieInputDialog({
               {(resultData?.nickname || "用").slice(0, 1)}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1">
-            <p className="text-base font-bold">{resultData?.nickname}</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-base font-bold truncate">{resultData?.nickname}</p>
             <p className="text-sm text-muted-foreground mt-0.5">
               采集到 <span className="text-xhs font-bold">{resultData?.postsFound}</span> 篇笔记
             </p>
@@ -760,8 +760,8 @@ export function CookieInputDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <span className="bg-gradient-to-r from-xhs to-xhs-dark bg-clip-text text-transparent text-lg font-bold">
               小红书数据采集
@@ -782,12 +782,15 @@ export function CookieInputDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {step === "method" && renderMethodStep()}
-        {step === "input" && method === "cookie" && renderCookieInput()}
-        {step === "input" && method === "search" && renderSearchInput()}
-        {step === "input" && method === "manual" && renderManualInput()}
-        {step === "progress" && renderProgress()}
-        {step === "result" && renderResult()}
+        {/* Scrollable content area */}
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
+          {step === "method" && renderMethodStep()}
+          {step === "input" && method === "cookie" && renderCookieInput()}
+          {step === "input" && method === "search" && renderSearchInput()}
+          {step === "input" && method === "manual" && renderManualInput()}
+          {step === "progress" && renderProgress()}
+          {step === "result" && renderResult()}
+        </div>
       </DialogContent>
     </Dialog>
   );

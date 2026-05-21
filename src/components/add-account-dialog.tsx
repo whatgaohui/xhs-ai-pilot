@@ -164,7 +164,7 @@ export function AddAccountDialog() {
 
   return (
     <Dialog open={addAccountDialogOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <span className="text-xl">📌</span>
@@ -212,7 +212,7 @@ export function AddAccountDialog() {
                 onChange={(e) => setCookies(e.target.value)}
                 disabled={loading}
                 rows={4}
-                className="font-mono text-[11px] resize-none"
+                className="font-mono text-[11px] resize-y break-all min-h-[80px] max-h-[200px] overflow-auto"
               />
             </div>
 

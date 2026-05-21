@@ -1736,14 +1736,15 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
         open={!!selectedPost}
         onOpenChange={(open) => !open && setSelectedPost(null)}
       >
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
           {selectedPost && (
             <>
-              <DialogHeader>
+              <DialogHeader className="shrink-0">
                 <DialogTitle className="text-left text-lg">
                   {selectedPost.title || "无标题"}
                 </DialogTitle>
               </DialogHeader>
+              <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
               <div className="space-y-4">
                 {/* Engagement stats with labels */}
                 <div className="grid grid-cols-4 gap-3">
@@ -1862,9 +1863,10 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                   )}
                 </div>
               </div>
+              </div>
 
               {/* Action Footer */}
-              <DialogFooter className="flex-row gap-2 sm:justify-between border-t border-border/50 pt-4">
+              <DialogFooter className="flex-row gap-2 sm:justify-between border-t border-border/50 pt-4 shrink-0 -mx-6 px-6">
                 <Button
                   variant="outline"
                   size="sm"

@@ -932,10 +932,10 @@ export function LibraryView() {
 
       {/* ── 6. Asset Detail Dialog ─────────────────────────────────────── */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
           {selectedAsset && (
             <>
-              <DialogHeader>
+              <DialogHeader className="shrink-0">
                 <DialogTitle className="flex items-center gap-2">
                   {selectedAsset.type === "image" && <ImageIcon className="w-5 h-5 text-rose-500" />}
                   {selectedAsset.type === "video" && <Video className="w-5 h-5 text-rose-500" />}
@@ -947,6 +947,9 @@ export function LibraryView() {
                   {formatRelativeDate(selectedAsset.createdAt)}
                 </DialogDescription>
               </DialogHeader>
+
+              {/* Scrollable content */}
+              <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6 space-y-4">
 
               {/* Preview */}
               <div className="rounded-lg overflow-hidden bg-muted/30 border border-border/60">
@@ -1074,10 +1077,13 @@ export function LibraryView() {
                 </Button>
               </div>
 
+              </div>
+              {/* End scrollable content */}
+
               <Separator />
 
               {/* Actions */}
-              <DialogFooter className="flex-row gap-2 sm:justify-start">
+              <DialogFooter className="flex-row gap-2 sm:justify-start shrink-0 border-t border-border/40 pt-4 -mx-6 px-6">
                 {selectedAsset.type === "image" && !selectedAsset.aiAnalyzed && (
                   <Button
                     variant="outline"
