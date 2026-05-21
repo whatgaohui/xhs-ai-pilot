@@ -6,8 +6,9 @@
  * Features:
  * - Account selector dropdown (single source of truth)
  * - 4 metric cards (粉丝/获赞/笔记/关注) always visible
- * - Account avatar + nickname + bio display
- * - Quick actions (刷新数据, 编辑账号, Cookie管理, + 新建笔记)
+ * - Account avatar + nickname + bio display + 小红书主页链接
+ * - Quick actions (同步笔记, 添加账号, 编辑账号, Cookie管理, + 新建笔记)
+ * - Delete account with confirmation dialog
  * - Sticky below topbar
  */
 
@@ -33,8 +34,19 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import type { AccountStats, AccountDataState } from "@/hooks/use-account-data";
 import {
@@ -51,6 +63,9 @@ import {
   Trash2,
   PenLine,
   Cookie,
+  ExternalLink,
+  Download,
+  UserCircle,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────
@@ -62,7 +77,7 @@ interface AccountHubHeaderProps {
   onCreateNote: () => void;
   /** Callback to open edit account dialog */
   onEditAccount: () => void;
-  /** Callback to trigger scrape/refresh */
+  /** Callback to trigger scrape/refresh (sync notes) */
   onRefreshData: () => void;
   /** Callback to delete account */
   onDeleteAccount: () => void;
@@ -70,6 +85,8 @@ interface AccountHubHeaderProps {
   onManualData: () => void;
   /** Callback to open edit account dialog focused on cookie section */
   onEditCookies: () => void;
+  /** Callback to open add account dialog */
+  onAddAccount: () => void;
   /** Whether a scrape is in progress */
   isScraping?: boolean;
   /** Whether an account delete is in progress */
@@ -133,9 +150,12 @@ export function AccountHubHeader({
   onDeleteAccount,
   onManualData,
   onEditCookies,
+  onAddAccount,
   isScraping = false,
   isDeleting = false,
 }: AccountHubHeaderProps) {
+  // Delete confirmation dialog state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const {
     accounts,
     selectedAccount,
@@ -246,6 +266,23 @@ export function AccountHubHeader({
                   <h3 className="text-base md:text-lg font-bold truncate">
                     {selectedAccount.nickname || "未命名用户"}
                   </h3>
+                  {/* 小红书主页跳转链接 */}
+                  {selectedAccount.xhsUrl && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <a
+                          href={selectedAccount.xhsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center w-5 h-5 rounded-md text-muted-foreground hover:text-xhs hover:bg-xhs-light/30 transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </TooltipTrigger>
+                      <TooltipContent>访问小红书主页</TooltipContent>
+                    </Tooltip>
+                  )}
                   <Badge
                     variant="secondary"
                     className={cn(
@@ -324,15 +361,15 @@ export function AccountHubHeader({
                     {isScraping ? (
                       <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
                     ) : (
-                      <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                      <Download className="w-3.5 h-3.5 mr-1" />
                     )}
-                    刷新
+                    同步笔记
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
                   {hasCookies
-                    ? "使用已存储的 Cookie 刷新数据"
-                    : "刷新需要 Cookie，请先添加 Cookie"}
+                    ? "从小红书平台同步该账号的最新笔记"
+                    : "同步需要 Cookie，请先添加 Cookie"}
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -356,6 +393,15 @@ export function AccountHubHeader({
                   {hasCookies ? "管理已存储的 Cookie" : "添加 Cookie 以启用数据刷新"}
                 </TooltipContent>
               </Tooltip>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-border text-xs hidden md:inline-flex"
+                onClick={onAddAccount}
+              >
+                <UserCircle className="w-3.5 h-3.5 mr-1" />
+                添加账号
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
@@ -386,13 +432,17 @@ export function AccountHubHeader({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={onRefreshData} disabled={isScraping}>
-                    <RefreshCw
+                    <Download
                       className={cn(
                         "w-4 h-4 mr-2",
                         isScraping && "animate-spin"
                       )}
                     />
-                    刷新数据
+                    同步笔记
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onAddAccount}>
+                    <UserCircle className="w-4 h-4 mr-2" />
+                    添加账号
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={onEditCookies}>
                     <Cookie className="w-4 h-4 mr-2" />
@@ -406,8 +456,9 @@ export function AccountHubHeader({
                     <PenLine className="w-4 h-4 mr-2" />
                     手动补充
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={onDeleteAccount}
+                    onClick={() => setDeleteConfirmOpen(true)}
                     disabled={isDeleting}
                     className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30"
                   >
@@ -419,6 +470,31 @@ export function AccountHubHeader({
             </div>
           </div>
         </div>
+
+        {/* ─── Delete Confirmation Dialog ───────────────────────────── */}
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认删除账号</AlertDialogTitle>
+              <AlertDialogDescription>
+                确定要删除账号「{selectedAccount.nickname || "未命名用户"}」吗？
+                该账号下的所有笔记、人设和草稿数据将被永久删除，此操作不可撤销。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setDeleteConfirmOpen(false);
+                  onDeleteAccount();
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                确认删除
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* ─── Stats Row ─────────────────────────────────────────────── */}
         <div className="px-4 md:px-6 pb-3">

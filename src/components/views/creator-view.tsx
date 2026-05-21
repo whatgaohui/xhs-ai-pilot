@@ -48,6 +48,7 @@ import {
   ArrowRight,
   Target,
   MessageSquare,
+  ExternalLink,
 } from "lucide-react";
 
 type QuickTone = "default" | "warm" | "professional" | "witty" | "casual" | "elegant";
@@ -514,6 +515,56 @@ export function CreatorView({ sharedAccountData }: CreatorViewProps) {
     } finally {
       setSavingDraft(false);
     }
+  };
+
+  // ─── Publish to XHS ──────────────────────────────────────────────────
+  // 小红书未提供公开的笔记发布API，采用"一键复制+跳转创作页"的方案
+  const handlePublishToXHS = async () => {
+    if (!generatedContent) return;
+
+    // First save as draft with "ready" status
+    try {
+      if (currentDraftId) {
+        await fetch(`/api/drafts/${currentDraftId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: generatedTitle,
+            content: generatedContent,
+            tags: generatedTags,
+            coverPrompt: generatedCoverPrompt,
+            status: "ready",
+          }),
+        });
+      } else {
+        const res = await fetch("/api/drafts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            accountId: selectedAccountId,
+            title: generatedTitle,
+            content: generatedContent,
+            tags: generatedTags,
+            coverPrompt: generatedCoverPrompt,
+            status: "ready",
+          }),
+        });
+        const data = await res.json();
+        if (data.success) setCurrentDraftId(data.data.id);
+      }
+      loadDrafts(selectedAccountId!);
+    } catch {
+      // Non-critical: continue to publish even if save fails
+    }
+
+    // Copy content to clipboard
+    const text = `${generatedTitle}\n\n${generatedContent}\n\n${generatedTags.map((t) => `#${t}`).join(" ")}`;
+    await navigator.clipboard.writeText(text);
+
+    // Open XHS creator page
+    window.open("https://creator.xiaohongshu.com/publish/publish", "_blank");
+
+    toast.success("内容已复制到剪贴板，正在打开小红书创作页，请粘贴发布");
   };
 
   const handleCopy = async () => {
@@ -1328,7 +1379,7 @@ export function CreatorView({ sharedAccountData }: CreatorViewProps) {
                     )}
                   </div>
 
-                  {/* Regenerate + Save */}
+                  {/* Regenerate + Save + Publish */}
                   <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
@@ -1358,6 +1409,28 @@ export function CreatorView({ sharedAccountData }: CreatorViewProps) {
                         </>
                       )}
                     </Button>
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-sm text-xs"
+                      onClick={handlePublishToXHS}
+                      disabled={!generatedContent}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                      发布到小红书
+                    </Button>
+                  </div>
+
+                  {/* Publish info */}
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/40 p-3 text-xs space-y-1.5">
+                    <p className="font-medium text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                      💡 关于发布到小红书
+                    </p>
+                    <p className="text-amber-600 dark:text-amber-400">
+                      点击「发布到小红书」后，内容将自动复制到剪贴板，并打开小红书创作页面，您只需粘贴即可完成发布。
+                    </p>
+                    <p className="text-muted-foreground text-[10px]">
+                      说明：小红书目前未开放公开的笔记发布API，因此采用复制+跳转方案。您的笔记数据会同步保存在本地草稿中。
+                    </p>
                   </div>
                 </div>
               </>

@@ -91,19 +91,16 @@ export function AccountHubView() {
     if (!accountData.selectedAccountId) return;
     setScraping(true);
     try {
-      // Use stored cookies as fallback by not sending cookies in body
-      // The scrape API will use stored cookies if no cookies are provided
       const selectedAccount = accountData.selectedAccount;
       const body: { cookies?: string } = {};
-      // If no stored cookies, we need to prompt the user
+      // If no stored cookies, prompt the user
       if (!selectedAccount?.cookies) {
-        toast.error("请先添加 Cookie 再刷新数据");
+        toast.error("请先添加 Cookie 才能同步笔记");
         setScraping(false);
         setEditFocusCookies(true);
         setEditDialogOpen(true);
         return;
       }
-      // Send stored cookies explicitly so the API uses them
       body.cookies = selectedAccount.cookies;
       const res = await fetch(
         `/api/accounts/${accountData.selectedAccountId}/scrape`,
@@ -113,12 +110,14 @@ export function AccountHubView() {
       if (data.success) {
         await accountData.refreshAccounts();
         await accountData.refreshAnalysis();
-        toast.success("数据采集成功");
+        const postsSynced = data.data?.postsSynced || 0;
+        const postsFound = data.data?.postsFound || 0;
+        toast.success(`同步完成：发现 ${postsFound} 篇笔记，已同步 ${postsSynced} 篇`);
       } else {
-        toast.error(data.error || "采集失败");
+        toast.error(data.error || "同步失败");
       }
     } catch {
-      toast.error("采集失败");
+      toast.error("同步失败");
     } finally {
       setScraping(false);
     }
@@ -137,6 +136,10 @@ export function AccountHubView() {
   const handleCreateNote = useCallback(() => {
     setCreatorSheetOpen(true);
   }, [setCreatorSheetOpen]);
+
+  const handleAddAccount = useCallback(() => {
+    setAddAccountDialogOpen(true);
+  }, [setAddAccountDialogOpen]);
 
   const handleDeleteAccount = useCallback(async () => {
     if (!accountData.selectedAccountId) return;
@@ -194,6 +197,7 @@ export function AccountHubView() {
           onDeleteAccount={handleDeleteAccount}
           onManualData={handleManualData}
           onEditCookies={handleEditCookies}
+          onAddAccount={handleAddAccount}
           isScraping={scraping}
           isDeleting={deleting}
         />
