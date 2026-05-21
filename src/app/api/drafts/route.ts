@@ -94,3 +94,36 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// DELETE /api/drafts?id=xxx - Delete a draft
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: '请提供草稿ID' },
+        { status: 400 }
+      );
+    }
+
+    const existing = await withDb(() => db.contentDraft.findUnique({ where: { id } }));
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: '草稿不存在' },
+        { status: 404 }
+      );
+    }
+
+    await withDb(() => db.contentDraft.delete({ where: { id } }));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete draft:', error);
+    return NextResponse.json(
+      { success: false, error: '删除草稿失败' },
+      { status: 500 }
+    );
+  }
+}

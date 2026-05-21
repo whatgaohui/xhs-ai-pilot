@@ -42,3 +42,132 @@ Stage Summary:
 - 删除账号增加确认对话框，防止误删
 - 同步按钮语义从"刷新数据"改为"同步笔记"更清晰
 - 发布功能采用"复制内容+跳转小红书创作页"的实际可行方案
+
+---
+Task ID: 2 (current)
+Agent: Code Agent
+Task: Implement Note Detail Scraping in XHS Scraper Microservice
+
+Work Log:
+- Read existing xhs-scraper microservice code and Next.js scrape API route
+- Added `scrapeNoteViaHTML(noteId, xsecToken, cookies)` function to scrape individual note detail pages
+  - Fetches `https://www.xiaohongshu.com/explore/{noteId}` with xsec_token query param
+  - Extracts `window.__INITIAL_STATE__` from HTML and parses note detail
+  - Extracts: title, desc, type, interactInfo (likes/comments/collects/shares), tagList (topic only), imageList, video info, time, xsecToken
+- Added `formatTimestamp(ms)` helper to convert ms timestamp to YYYY-MM-DD
+- Added `NoteDetailInitialState` TypeScript interface for note detail page structure
+- Added `POST /api/scrape/note` endpoint for single note detail scraping
+- Added `POST /api/scrape/profile-with-details` endpoint that:
+  - First scrapes profile for note cards
+  - Then scrapes up to 5 note details with 1500ms delay between requests
+  - Merges detail data into existing post cards
+  - Handles individual note failures gracefully
+- Changed `/api/scrape/profile` route from `startsWith` to exact match to avoid route conflicts
+- Updated Next.js `callScraperService` to use `/api/scrape/profile-with-details` endpoint
+- Increased API timeout from 60s to 120s to accommodate additional note requests
+- Ran `bun run lint` — passed
+- Restarted xhs-scraper service — all endpoints verified working
+
+Stage Summary:
+- Note detail scraping fully implemented in xhs-scraper microservice
+- Two new endpoints: `/api/scrape/note` and `/api/scrape/profile-with-details`
+- Next.js scrape API now calls profile-with-details for richer data
+- All fields that were previously empty (content, imageUrls, comments, collects, shares, tags, publishDate) are now populated for the first 5 notes
+- Rate limiting (5 note limit + 1.5s delay) prevents triggering XHS anti-scraping
+- Lint passes, services running normally
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix Draft Notes Visibility and Calendar Click Functionality
+
+Work Log:
+- Added `scrapedAt?: string` field to `XhsPostInfo` type in `src/types/index.ts`
+- Added `DELETE /api/drafts?id=xxx` handler to drafts API route for deleting drafts
+- Completely rewrote `src/components/views/content-view.tsx` with the following changes:
+
+Part A: Show Drafts in Note Management
+- Added `drafts` state and `loadDrafts` function that fetches `/api/drafts?accountId=xxx`
+- Added `noteTypeFilter` state with "all" | "posts" | "drafts" options
+- Added `NOTE_TYPE_CHIPS` filter buttons in the UI (alongside category chips)
+- Created `DraftCard` component with draft-specific styling (amber color scheme)
+- Created `DraftStatusBadge` component for draft/polishing/ready/published status
+- Added draft detail dialog showing: title, content, tags, status, AI suggestions, cover prompt, meta info
+- Draft detail dialog has action buttons: "在创作中编辑", "复制内容", "删除草稿"
+- Integrated drafts in grid and list views using `DisplayItem` union type for unified pagination
+- Drafts appear in calendar view with amber styling (vs xhs-red for posts)
+
+Part B: Fix Calendar Click Functionality
+- Rewrote `ContentCalendar` component to accept `drafts`, `onDraftClick`, `onDateClick`, `onToday` props
+- Added `onDateClick(dateStr)` handler: clicking a calendar cell shows a date detail panel below
+- Date detail panel lists all posts and drafts for the clicked date with thumbnails and basic stats
+- Fixed publishDate fallback: if `publishDate` is empty, uses `scrapedAt` date for calendar grouping
+- Fixed "今天" button: now calls `onToday` which resets `currentMonth` to current date
+- Draft entries in calendar use amber color scheme (`bg-amber-100 text-amber-700`)
+- Calendar click on note/draft buttons properly stops event propagation
+
+Part C: Additional Improvements
+- Added `handleDeleteDraft` function with API call and state update
+- Added `handleCopyDraftContent` function for copying draft content
+- Updated list view to show `scrapedAt` date when `publishDate` is empty
+- Updated empty state messages to be contextual (different for drafts vs posts)
+- Total count in header now includes both posts and drafts
+
+- Ran `bun run lint` — passed with no errors
+- Dev server running normally (HTTP 200)
+
+Stage Summary:
+- Draft notes from AI creator are now visible in note management with full CRUD support
+- Calendar shows both posts and drafts with color differentiation
+- Calendar date click shows a detail panel with all notes for that date
+- Posts without publishDate now appear on calendar using scrapedAt as fallback
+- "今天" button now properly navigates to current month
+- Draft detail dialog supports viewing, copying, editing in creator, and deleting
+- All features are consistent with existing UI design patterns
+---
+Task ID: 2
+Agent: full-stack-developer (subagent)
+Task: Implement note detail scraping in XHS scraper microservice
+
+Work Log:
+- Added `scrapeNoteViaHTML(noteId, xsecToken, cookies)` function to scrape individual note detail pages
+- Added `NoteDetailInitialState` interface for parsing note detail JSON
+- Added `formatTimestamp(ms)` helper to convert millisecond timestamps to YYYY-MM-DD
+- Added `POST /api/scrape/note` endpoint for single note detail scraping
+- Added `POST /api/scrape/profile-with-details` endpoint that scrapes profile then up to 5 note details with rate limiting
+- Fixed profile route from `startsWith` to exact match to avoid route conflicts
+- Updated scrape API route in Next.js to use `profile-with-details` instead of `profile`
+- Increased scrape API timeout from 60s to 120s
+
+Stage Summary:
+- XHS scraper now supports full note detail scraping: content, images, tags, publishDate, comments, collects, shares
+- Rate limited to 5 note details per profile scrape to avoid detection
+- Individual note endpoint available for on-demand detail scraping
+- Scrape API automatically uses the new detail-enhanced endpoint
+
+---
+Task ID: 3
+Agent: full-stack-developer (subagent)
+Task: Fix draft notes visibility and calendar click functionality
+
+Work Log:
+- Added `scrapedAt` field to `XhsPostInfo` type for calendar date fallback
+- Added `ContentDraftInfo` import and `drafts` state to ContentView
+- Added `loadDrafts()` function that fetches from `/api/drafts` API
+- Added `noteTypeFilter` state with "全部"/"已发布笔记"/"草稿" chips
+- Created `DraftCard` component with amber color scheme showing title, content, tags, status, created date
+- Created `DraftStatusBadge` component for draft/polishing/ready/published status
+- Added draft detail dialog with title, content, tags, status, AI suggestions, and action buttons
+- Integrated drafts into grid/list views using `DisplayItem` union type for unified pagination
+- Added `onDateClick`, `onDraftClick`, `onToday` props to ContentCalendar
+- Calendar date cells are now clickable - shows detail panel below with all notes for that date
+- Fixed posts without publishDate by using `scrapedAt` as fallback in calendar
+- Fixed "今天" button to properly navigate to current month
+- Drafts appear in calendar with amber styling
+- Click propagation fixed for note/draft buttons within calendar cells
+
+Stage Summary:
+- Drafts now visible in note management with type filter chips
+- Calendar shows both posts and drafts, clicking a date shows date detail panel
+- Posts without publishDate appear on calendar using scrapedAt date
+- "今天" button now works properly

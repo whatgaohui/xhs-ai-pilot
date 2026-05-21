@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/empty-state";
 import { useAppStore } from "@/store/app-store";
-import type { XhsAccountInfo, XhsPostInfo } from "@/types";
+import type { XhsAccountInfo, XhsPostInfo, ContentDraftInfo } from "@/types";
 import type { AccountDataState } from "@/hooks/use-account-data";
 import { PostCard } from "@/components/post-card";
 import { formatNumber } from "@/components/account-card";
@@ -58,13 +58,21 @@ import {
   Download,
   Tag,
   BookOpen,
+  Palette,
 } from "lucide-react";
 
 type SortOption = "date" | "likes" | "comments" | "collects" | "aiScore";
 type ViewMode = "grid" | "list" | "calendar" | "schedule";
 type CategoryFilter = "全部" | "美食探店" | "穿搭时尚" | "旅行攻略" | "家居装修" | "职场成长" | "美妆护肤";
+type NoteTypeFilter = "all" | "posts" | "drafts";
 
 const CATEGORY_CHIPS: CategoryFilter[] = ["全部", "美食探店", "穿搭时尚", "旅行攻略", "家居装修", "职场成长", "美妆护肤"];
+
+const NOTE_TYPE_CHIPS: { value: NoteTypeFilter; label: string }[] = [
+  { value: "all", label: "全部" },
+  { value: "posts", label: "已发布笔记" },
+  { value: "drafts", label: "草稿" },
+];
 
 // ─── Schedule Types ─────────────────────────────────────────────────────
 
@@ -133,20 +141,163 @@ function formatRelativeDate(dateStr: string): string {
   return `${month}月${day}日`;
 }
 
+// ─── Draft Status Badge ────────────────────────────────────────────────
+
+function DraftStatusBadge({ status }: { status: ContentDraftInfo["status"] }) {
+  const config: Record<string, { label: string; className: string }> = {
+    draft: {
+      label: "草稿",
+      className: "bg-muted text-muted-foreground border-border",
+    },
+    polishing: {
+      label: "润色中",
+      className: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50",
+    },
+    ready: {
+      label: "待发布",
+      className: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50",
+    },
+    published: {
+      label: "已发布",
+      className: "bg-xhs-light/60 text-xhs border-xhs/20",
+    },
+  };
+  const { label, className } = config[status] || config.draft;
+  return (
+    <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-5 font-medium border", className)}>
+      {label}
+    </Badge>
+  );
+}
+
+// ─── DraftCard Component ───────────────────────────────────────────────
+
+function DraftCard({
+  draft,
+  onClick,
+  className,
+}: {
+  draft: ContentDraftInfo & { accountNickname?: string; accountAvatar?: string };
+  onClick?: () => void;
+  className?: string;
+}) {
+  const statusConfig: Record<string, { gradient: string; icon: typeof Palette }> = {
+    draft: { gradient: "from-slate-400 via-gray-400 to-zinc-300", icon: FileText },
+    polishing: { gradient: "from-amber-400 via-orange-400 to-yellow-300", icon: Sparkles },
+    ready: { gradient: "from-emerald-400 via-green-400 to-teal-300", icon: CheckCircle2 },
+    published: { gradient: "from-xhs via-rose-400 to-pink-300", icon: CheckCircle2 },
+  };
+  const config = statusConfig[draft.status] || statusConfig.draft;
+  const StatusIcon = config.icon;
+
+  return (
+    <Card
+      className={cn(
+        "cursor-pointer card-glow overflow-hidden group active:scale-[0.97] transition-all duration-200",
+        className
+      )}
+      onClick={onClick}
+    >
+      {/* Cover area with draft styling */}
+      <div className="aspect-[4/3] bg-muted relative overflow-hidden">
+        <div className={cn(
+          "w-full h-full flex items-center justify-center bg-gradient-to-br",
+          config.gradient
+        )}>
+          <div className="flex flex-col items-center gap-2">
+            <StatusIcon className="w-10 h-10 text-white/90" />
+            <span className="text-[10px] text-white/70 font-medium">
+              {draft.status === "draft" ? "草稿" : draft.status === "polishing" ? "润色中" : draft.status === "ready" ? "待发布" : "已发布"}
+            </span>
+          </div>
+        </div>
+
+        {/* Draft badge */}
+        <div className="absolute top-2 left-2 bg-amber-500/80 backdrop-blur-sm text-white text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+          <FileText className="w-2.5 h-2.5" />
+          草稿
+        </div>
+
+        {/* Status badge */}
+        <div className="absolute top-2 right-2">
+          <DraftStatusBadge status={draft.status} />
+        </div>
+      </div>
+
+      <CardContent className="p-3 space-y-2">
+        {/* Title */}
+        <h3 className="text-sm font-medium line-clamp-2 leading-snug min-h-[2.5rem]">
+          {draft.title || "无标题草稿"}
+        </h3>
+
+        {/* Content excerpt */}
+        {draft.content && (
+          <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+            {draft.content.slice(0, 50)}{draft.content.length > 50 ? "..." : ""}
+          </p>
+        )}
+
+        {/* Tags */}
+        {draft.tags && draft.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {draft.tags.slice(0, 2).map((tag, i) => (
+              <span
+                key={i}
+                className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 font-medium inline-flex items-center"
+              >
+                #{tag}
+              </span>
+            ))}
+            {draft.tags.length > 2 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground font-medium">
+                +{draft.tags.length - 2}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Divider */}
+        <div className="border-t border-border/40" />
+
+        {/* Meta row */}
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {formatRelativeDate(draft.createdAt)}
+          </span>
+          {draft.accountNickname && (
+            <span className="flex items-center gap-1 ml-auto truncate max-w-[80px]">
+              {draft.accountNickname}
+            </span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── ContentCalendar Component ──────────────────────────────────────────
 
 function ContentCalendar({
   posts,
+  drafts,
   onPostClick,
+  onDraftClick,
+  onDateClick,
   currentMonth,
   onPrevMonth,
   onNextMonth,
+  onToday,
 }: {
   posts: XhsPostInfo[];
+  drafts: ContentDraftInfo[];
   onPostClick: (post: XhsPostInfo) => void;
+  onDraftClick: (draft: ContentDraftInfo) => void;
+  onDateClick: (dateStr: string) => void;
   currentMonth: Date;
   onPrevMonth: () => void;
   onNextMonth: () => void;
+  onToday: () => void;
 }) {
   const today = new Date();
   const year = currentMonth.getFullYear();
@@ -155,7 +306,12 @@ function ContentCalendar({
   const postsByDate = useMemo(() => {
     const map: Record<string, XhsPostInfo[]> = {};
     for (const post of posts) {
-      const dateStr = post.publishDate ? post.publishDate.slice(0, 10) : "";
+      // Fallback: use scrapedAt if publishDate is empty
+      const dateStr = post.publishDate
+        ? post.publishDate.slice(0, 10)
+        : post.scrapedAt
+          ? post.scrapedAt.slice(0, 10)
+          : "";
       if (dateStr) {
         if (!map[dateStr]) map[dateStr] = [];
         map[dateStr].push(post);
@@ -163,6 +319,18 @@ function ContentCalendar({
     }
     return map;
   }, [posts]);
+
+  const draftsByDate = useMemo(() => {
+    const map: Record<string, ContentDraftInfo[]> = {};
+    for (const draft of drafts) {
+      const dateStr = draft.createdAt ? draft.createdAt.slice(0, 10) : "";
+      if (dateStr) {
+        if (!map[dateStr]) map[dateStr] = [];
+        map[dateStr].push(draft);
+      }
+    }
+    return map;
+  }, [drafts]);
 
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
@@ -194,7 +362,7 @@ function ContentCalendar({
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onPrevMonth}>
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => {}}>
+          <Button variant="ghost" size="sm" className="text-xs h-7" onClick={onToday}>
             今天
           </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onNextMonth}>
@@ -214,15 +382,23 @@ function ContentCalendar({
       <div className="grid grid-cols-7 gap-1">
         {cells.map((cell, i) => {
           const dayPosts = cell.dateStr ? postsByDate[cell.dateStr] || [] : [];
+          const dayDrafts = cell.dateStr ? draftsByDate[cell.dateStr] || [] : [];
+          const hasContent = dayPosts.length > 0 || dayDrafts.length > 0;
           return (
             <div
               key={i}
               className={cn(
-                "min-h-[72px] border border-border/50 rounded-lg p-1 transition-colors",
-                cell.day === null && "bg-muted/20",
+                "min-h-[72px] border border-border/50 rounded-lg p-1 transition-colors cursor-pointer",
+                cell.day === null && "bg-muted/20 cursor-default",
                 cell.isToday && "bg-xhs-light/30 border-xhs/30",
-                cell.day !== null && !cell.isToday && "bg-white dark:bg-neutral-950"
+                cell.day !== null && !cell.isToday && "bg-white dark:bg-neutral-950",
+                cell.day !== null && hasContent && "hover:border-xhs/30"
               )}
+              onClick={() => {
+                if (cell.dateStr && cell.day !== null) {
+                  onDateClick(cell.dateStr);
+                }
+              }}
             >
               {cell.day !== null && (
                 <>
@@ -239,17 +415,34 @@ function ContentCalendar({
                       <button
                         key={post.id}
                         className="w-full text-left text-[10px] leading-tight px-1 py-0.5 rounded bg-xhs/10 text-xhs hover:bg-xhs/20 transition-colors truncate"
-                        onClick={() => onPostClick(post)}
+                        onClick={(e) => { e.stopPropagation(); onPostClick(post); }}
                         title={post.title || "无标题"}
                       >
                         {post.title || "无标题"}
                       </button>
                     ))}
-                    {dayPosts.length > 2 && (
-                      <span className="text-[10px] text-muted-foreground px-1">
-                        +{dayPosts.length - 2}更多
-                      </span>
-                    )}
+                    {dayDrafts.slice(0, 2 - Math.min(dayPosts.length, 2)).map((draft) => (
+                      <button
+                        key={draft.id}
+                        className="w-full text-left text-[10px] leading-tight px-1 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-950/50 transition-colors truncate"
+                        onClick={(e) => { e.stopPropagation(); onDraftClick(draft); }}
+                        title={draft.title || "无标题草稿"}
+                      >
+                        {draft.title || "无标题草稿"}
+                      </button>
+                    ))}
+                    {(() => {
+                      const totalItems = dayPosts.length + dayDrafts.length;
+                      const shown = Math.min(dayPosts.length, 2) + Math.min(dayDrafts.length, 2 - Math.min(dayPosts.length, 2));
+                      if (totalItems > shown) {
+                        return (
+                          <span className="text-[10px] text-muted-foreground px-1">
+                            +{totalItems - shown}更多
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </>
               )}
@@ -537,8 +730,6 @@ function SchedulePostDialog({
   );
   const [notes, setNotes] = useState(editingPost?.notes ?? "");
 
-  // Auto-fill title when selecting a draft - handled in onChange instead of effect
-
   const handleSubmit = () => {
     if (!title.trim() || !scheduledDate || !scheduledTime) return;
     onSchedule({
@@ -694,20 +885,25 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
   const { setAddAccountDialogOpen, setActiveTab, setCreatorSheetOpen } = useAppStore();
   const isInHub = !!sharedAccountData;
   const [posts, setPosts] = useState<XhsPostInfo[]>([]);
+  const [drafts, setDrafts] = useState<(ContentDraftInfo & { accountNickname?: string; accountAvatar?: string })[]>([]);
   const [standaloneAccounts, setStandaloneAccounts] = useState<(XhsAccountInfo & { postsCount?: number })[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<SortOption>("date");
   const [filterAccountId, setFilterAccountId] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPost, setSelectedPost] = useState<XhsPostInfo | null>(null);
+  const [selectedDraft, setSelectedDraft] = useState<(ContentDraftInfo & { accountNickname?: string; accountAvatar?: string }) | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [currentPage, setCurrentPage] = useState(1);
   const [copied, setCopied] = useState(false);
+  const [draftCopied, setDraftCopied] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("全部");
+  const [noteTypeFilter, setNoteTypeFilter] = useState<NoteTypeFilter>("all");
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // Batch selection state
   const [selectionMode, setSelectionMode] = useState(false);
@@ -774,12 +970,13 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
 
   useEffect(() => {
     loadPosts();
+    loadDrafts();
   }, [sortBy, filterAccountId]);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [sortBy, filterAccountId, searchQuery, categoryFilter]);
+  }, [sortBy, filterAccountId, searchQuery, categoryFilter, noteTypeFilter]);
 
   const loadAccounts = async () => {
     try {
@@ -809,6 +1006,20 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
     }
   };
 
+  const loadDrafts = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (filterAccountId !== "all") params.set("accountId", filterAccountId);
+      const res = await fetch(`/api/drafts?${params}`);
+      const data = await res.json();
+      if (data.success) {
+        setDrafts(data.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load drafts:", err);
+    }
+  };
+
   // Resolve accounts: use shared data when in hub, otherwise standalone
   const accounts = isInHub ? sharedAccountData!.accounts : standaloneAccounts;
 
@@ -832,8 +1043,56 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
     );
   });
 
+  const filteredDrafts = drafts.filter((draft) => {
+    // Search filter
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (draft.title || "").toLowerCase().includes(q) ||
+      (draft.content || "").toLowerCase().includes(q) ||
+      (draft.tags || []).some((tag) => tag.toLowerCase().includes(q))
+    );
+  });
+
+  // Determine which items to show based on noteTypeFilter
+  const displayPosts = noteTypeFilter === "drafts" ? [] : filteredPosts;
+  const displayDrafts = noteTypeFilter === "posts" ? [] : filteredDrafts;
+
+  // For pagination: combined items when showing "all"
+  type DisplayItem =
+    | { type: "post"; data: XhsPostInfo }
+    | { type: "draft"; data: ContentDraftInfo & { accountNickname?: string; accountAvatar?: string } };
+
+  const allDisplayItems = useMemo(() => {
+    const items: DisplayItem[] = [];
+    if (noteTypeFilter === "all") {
+      // Interleave posts and drafts by date (posts first, then drafts)
+      for (const post of filteredPosts) {
+        items.push({ type: "post", data: post });
+      }
+      for (const draft of filteredDrafts) {
+        items.push({ type: "draft", data: draft });
+      }
+    } else if (noteTypeFilter === "posts") {
+      for (const post of filteredPosts) {
+        items.push({ type: "post", data: post });
+      }
+    } else {
+      for (const draft of filteredDrafts) {
+        items.push({ type: "draft", data: draft });
+      }
+    }
+    return items;
+  }, [noteTypeFilter, filteredPosts, filteredDrafts]);
+
   // Pagination
-  const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE);
+  const totalPages = Math.ceil(allDisplayItems.length / POSTS_PER_PAGE);
+  const paginatedItems = allDisplayItems.slice(
+    (currentPage - 1) * POSTS_PER_PAGE,
+    currentPage * POSTS_PER_PAGE
+  );
+
+  // Also keep paginatedPosts for batch operations compatibility
   const paginatedPosts = filteredPosts.slice(
     (currentPage - 1) * POSTS_PER_PAGE,
     currentPage * POSTS_PER_PAGE
@@ -863,6 +1122,10 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
     });
   };
 
+  const handleTodayMonth = () => {
+    setCurrentMonth(new Date());
+  };
+
   const handleCopyContent = async () => {
     if (!selectedPost) return;
     const text = `${selectedPost.title}\n\n${selectedPost.content || ""}\n\n${(selectedPost.tags || []).map((t) => `#${t}`).join(" ")}`;
@@ -871,10 +1134,59 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCopyDraftContent = async () => {
+    if (!selectedDraft) return;
+    const text = `${selectedDraft.title}\n\n${selectedDraft.content || ""}\n\n${(selectedDraft.tags || []).map((t) => `#${t}`).join(" ")}`;
+    await navigator.clipboard.writeText(text);
+    setDraftCopied(true);
+    setTimeout(() => setDraftCopied(false), 2000);
+  };
+
   const handleDeletePost = async (postId: string) => {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
     setSelectedPost(null);
   };
+
+  const handleDeleteDraft = async (draftId: string) => {
+    try {
+      const res = await fetch(`/api/drafts?id=${draftId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        setDrafts((prev) => prev.filter((d) => d.id !== draftId));
+        setSelectedDraft(null);
+        toast.success("草稿已删除");
+      } else {
+        toast.error("删除草稿失败");
+      }
+    } catch {
+      toast.error("删除草稿失败");
+    }
+  };
+
+  const handleDateClick = (dateStr: string) => {
+    setSelectedDate((prev) => prev === dateStr ? null : dateStr);
+  };
+
+  // Items for the selected date in calendar
+  const selectedDatePosts = useMemo(() => {
+    if (!selectedDate) return [];
+    return posts.filter((post) => {
+      const dateStr = post.publishDate
+        ? post.publishDate.slice(0, 10)
+        : post.scrapedAt
+          ? post.scrapedAt.slice(0, 10)
+          : "";
+      return dateStr === selectedDate;
+    });
+  }, [posts, selectedDate]);
+
+  const selectedDateDrafts = useMemo(() => {
+    if (!selectedDate) return [];
+    return drafts.filter((draft) => {
+      const dateStr = draft.createdAt ? draft.createdAt.slice(0, 10) : "";
+      return dateStr === selectedDate;
+    });
+  }, [drafts, selectedDate]);
 
   // ─── Batch Operations ──────────────────────────────────────────────────
 
@@ -1053,7 +1365,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
     return { pending, published, draft, today, total: scheduledPosts.length };
   }, [scheduledPosts]);
 
-  if (loading && posts.length === 0) {
+  if (loading && posts.length === 0 && drafts.length === 0) {
     return (
       <div className="p-4 md:p-6 space-y-6 view-animate">
         <div className="flex items-center gap-3">
@@ -1069,7 +1381,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
     );
   }
 
-  if (isInHub && sharedAccountData?.selectedAccountId && filterAccountId === sharedAccountData.selectedAccountId && posts.length === 0) {
+  if (isInHub && sharedAccountData?.selectedAccountId && filterAccountId === sharedAccountData.selectedAccountId && posts.length === 0 && drafts.length === 0) {
     const selectedAccount = accounts.find((a) => a.id === sharedAccountData.selectedAccountId);
     return (
       <div className="p-4 md:p-6 view-animate">
@@ -1082,7 +1394,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
     );
   }
 
-  if (posts.length === 0 && accounts.length === 0) {
+  if (posts.length === 0 && accounts.length === 0 && drafts.length === 0) {
     return (
       <div className="p-4 md:p-6 view-animate">
         <EmptyState
@@ -1105,7 +1417,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
           <p className={cn("text-muted-foreground", isInHub ? "text-xs" : "text-sm mt-0.5")}>
             {viewMode === "schedule"
               ? `排期管理 · ${scheduleStats.today}篇今天发布`
-              : `${isInHub ? '' : '浏览和管理笔记 · '}共 ${filteredPosts.length} 篇`}
+              : `${isInHub ? '' : '浏览和管理笔记 · '}共 ${filteredPosts.length + filteredDrafts.length} 篇`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1284,7 +1596,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
         </div>
       )}
 
-      {/* Search + Category Chips + Sort (hidden in schedule view) */}
+      {/* Search + Note Type + Category Chips + Sort (hidden in schedule view) */}
       {viewMode !== "schedule" && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
@@ -1328,8 +1640,33 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
             </div>
           </div>
 
-          {/* Category filter chips */}
+          {/* Note type filter chips */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {NOTE_TYPE_CHIPS.map((chip) => (
+              <button
+                key={chip.value}
+                className={cn(
+                  "shrink-0 text-xs px-3 py-1.5 rounded-full font-medium transition-all duration-200 border",
+                  noteTypeFilter === chip.value
+                    ? "bg-xhs text-white border-xhs shadow-sm shadow-xhs/20"
+                    : "bg-white dark:bg-neutral-900 text-muted-foreground border-border/60 hover:border-xhs/40 hover:text-xhs"
+                )}
+                onClick={() => setNoteTypeFilter(chip.value)}
+              >
+                {chip.label}
+                {chip.value === "drafts" && filteredDrafts.length > 0 && (
+                  <span className="ml-1 text-[10px] opacity-80">({filteredDrafts.length})</span>
+                )}
+                {chip.value === "posts" && filteredPosts.length > 0 && (
+                  <span className="ml-1 text-[10px] opacity-80">({filteredPosts.length})</span>
+                )}
+                {chip.value === "all" && (
+                  <span className="ml-1 text-[10px] opacity-80">({filteredPosts.length + filteredDrafts.length})</span>
+                )}
+              </button>
+            ))}
+            <div className="h-4 w-px bg-border/60" />
+            {/* Category filter chips */}
             {CATEGORY_CHIPS.map((chip) => (
               <button
                 key={chip}
@@ -1420,67 +1757,161 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
 
       {/* Content area: Grid, List, or Calendar */}
       {viewMode === "calendar" ? (
-        <Card className="border border-border view-animate">
-          <CardContent className="p-4">
-            <ContentCalendar
-              posts={filteredPosts}
-              onPostClick={setSelectedPost}
-              currentMonth={currentMonth}
-              onPrevMonth={handlePrevMonth}
-              onNextMonth={handleNextMonth}
-            />
-          </CardContent>
-        </Card>
+        <div className="space-y-4 view-animate">
+          <Card className="border border-border">
+            <CardContent className="p-4">
+              <ContentCalendar
+                posts={displayPosts}
+                drafts={displayDrafts}
+                onPostClick={setSelectedPost}
+                onDraftClick={setSelectedDraft}
+                onDateClick={handleDateClick}
+                currentMonth={currentMonth}
+                onPrevMonth={handlePrevMonth}
+                onNextMonth={handleNextMonth}
+                onToday={handleTodayMonth}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Date Detail Panel */}
+          {selectedDate && (
+            <Card className="border border-border shadow-sm view-animate">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold">
+                    {formatDateDisplay(selectedDate)} 的内容
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      {selectedDatePosts.length + selectedDateDrafts.length} 篇
+                    </span>
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => setSelectedDate(null)}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                {selectedDatePosts.length === 0 && selectedDateDrafts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-4 text-center">该日期暂无内容</p>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+                    {selectedDatePosts.map((post) => (
+                      <button
+                        key={post.id}
+                        className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                        onClick={() => setSelectedPost(post)}
+                      >
+                        {/* Thumbnail */}
+                        <div className="w-10 h-10 rounded-md bg-muted overflow-hidden shrink-0">
+                          {post.coverUrl ? (
+                            <img src={post.coverUrl} alt={post.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-xhs/20 to-xhs/5">
+                              <FileText className="w-4 h-4 text-xhs" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{post.title || "无标题"}</p>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                            <span className="flex items-center gap-0.5"><Heart className="w-2.5 h-2.5" />{formatNumber(post.likes)}</span>
+                            <span className="flex items-center gap-0.5"><MessageCircle className="w-2.5 h-2.5" />{formatNumber(post.comments)}</span>
+                            <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5 bg-xhs-light/60 text-xhs/70 border-0">
+                              笔记
+                            </Badge>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                    {selectedDateDrafts.map((draft) => (
+                      <button
+                        key={draft.id}
+                        className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                        onClick={() => setSelectedDraft(draft)}
+                      >
+                        {/* Thumbnail */}
+                        <div className="w-10 h-10 rounded-md bg-amber-100 dark:bg-amber-950/30 overflow-hidden shrink-0 flex items-center justify-center">
+                          <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{draft.title || "无标题草稿"}</p>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                            <DraftStatusBadge status={draft.status} />
+                            <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-0">
+                              草稿
+                            </Badge>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       ) : viewMode === "grid" ? (
-        filteredPosts.length === 0 ? (
+        allDisplayItems.length === 0 ? (
           <EmptyState
             icon={FileText}
             title="没有找到笔记"
-            description={searchQuery ? "尝试修改搜索关键词" : "该账号暂无笔记数据"}
+            description={searchQuery ? "尝试修改搜索关键词" : noteTypeFilter === "drafts" ? "暂无草稿，在AI创作中保存草稿后即可查看" : "该账号暂无笔记数据"}
             className="py-8"
           />
         ) : (
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-              {paginatedPosts.map((post, i) => (
+              {paginatedItems.map((item, i) => (
                 <div
-                  key={post.id}
+                  key={item.type === "post" ? item.data.id : `draft-${item.data.id}`}
                   className="stagger-item relative"
                   style={{ animationDelay: `${i * 0.04}s` }}
                 >
-                  <div
-                    className={cn(
-                      "relative transition-all duration-200 rounded-xl",
-                      selectionMode && selectedIds.has(post.id) && "ring-2 ring-xhs scale-[1.02]",
-                      selectionMode && !selectedIds.has(post.id) && "hover:ring-1 hover:ring-muted-foreground/30"
-                    )}
-                    onClick={(e) => handleCardClick(post, e)}
-                  >
-                    {selectionMode && (
-                      <div className="absolute top-2 left-2 z-20 transition-all duration-200">
-                        <Checkbox
-                          checked={selectedIds.has(post.id)}
-                          className={cn(
-                            "h-5 w-5 rounded-md border-2 transition-all duration-200",
-                            selectedIds.has(post.id)
-                              ? "border-xhs bg-xhs text-white"
-                              : "border-white/80 bg-black/40 backdrop-blur-sm hover:border-xhs/60"
-                          )}
-                        />
-                      </div>
-                    )}
-                    <PostCard
-                      post={post}
-                      showActions={!selectionMode}
-                      onQuickView={() => setSelectedPost(post)}
-                      onEditAction={() => {
-                        setSelectedPost(post);
-                        setActiveTab("creator");
-                      }}
-                      onBookmarkToggle={() => toggleBookmark(post.id)}
-                      isBookmarked={bookmarkedIds.has(post.id)}
+                  {item.type === "post" ? (
+                    <div
+                      className={cn(
+                        "relative transition-all duration-200 rounded-xl",
+                        selectionMode && selectedIds.has(item.data.id) && "ring-2 ring-xhs scale-[1.02]",
+                        selectionMode && !selectedIds.has(item.data.id) && "hover:ring-1 hover:ring-muted-foreground/30"
+                      )}
+                      onClick={(e) => handleCardClick(item.data, e)}
+                    >
+                      {selectionMode && (
+                        <div className="absolute top-2 left-2 z-20 transition-all duration-200">
+                          <Checkbox
+                            checked={selectedIds.has(item.data.id)}
+                            className={cn(
+                              "h-5 w-5 rounded-md border-2 transition-all duration-200",
+                              selectedIds.has(item.data.id)
+                                ? "border-xhs bg-xhs text-white"
+                                : "border-white/80 bg-black/40 backdrop-blur-sm hover:border-xhs/60"
+                            )}
+                          />
+                        </div>
+                      )}
+                      <PostCard
+                        post={item.data}
+                        showActions={!selectionMode}
+                        onQuickView={() => setSelectedPost(item.data)}
+                        onEditAction={() => {
+                          setSelectedPost(item.data);
+                          setActiveTab("creator");
+                        }}
+                        onBookmarkToggle={() => toggleBookmark(item.data.id)}
+                        isBookmarked={bookmarkedIds.has(item.data.id)}
+                      />
+                    </div>
+                  ) : (
+                    <DraftCard
+                      draft={item.data}
+                      onClick={() => setSelectedDraft(item.data)}
                     />
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1537,23 +1968,103 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                   <ChevronRight className="w-3.5 h-3.5 ml-1" />
                 </Button>
                 <span className="text-xs text-muted-foreground ml-2">
-                  共 {filteredPosts.length} 篇
+                  共 {allDisplayItems.length} 篇
                 </span>
               </div>
             )}
           </>
         )
       ) : viewMode === "list" ? (
-        filteredPosts.length === 0 ? (
+        allDisplayItems.length === 0 ? (
           <EmptyState
             icon={FileText}
             title="没有找到笔记"
-            description={searchQuery ? "尝试修改搜索关键词" : "该账号暂无笔记数据"}
+            description={searchQuery ? "尝试修改搜索关键词" : noteTypeFilter === "drafts" ? "暂无草稿，在AI创作中保存草稿后即可查看" : "该账号暂无笔记数据"}
             className="py-8"
           />
         ) : (
           <div className="space-y-2">
-            {paginatedPosts.map((post, i) => {
+            {paginatedItems.map((item, i) => {
+              if (item.type === "draft") {
+                const draft = item.data;
+                return (
+                  <div
+                    key={`draft-${draft.id}`}
+                    className="stagger-item relative"
+                    style={{ animationDelay: `${i * 0.03}s` }}
+                  >
+                    <Card
+                      className="overflow-hidden hover:shadow-md transition-all duration-200 border-border/60 cursor-pointer"
+                      onClick={() => setSelectedDraft(draft)}
+                    >
+                      <div className="flex">
+                        {/* Thumbnail */}
+                        <div className="w-28 sm:w-36 shrink-0 aspect-[4/3] bg-amber-100 dark:bg-amber-950/30 relative overflow-hidden flex items-center justify-center">
+                          <div className="flex flex-col items-center gap-1">
+                            <FileText className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                            <span className="text-[9px] text-amber-600 dark:text-amber-400 font-medium">草稿</span>
+                          </div>
+                          <DraftStatusBadge status={draft.status} />
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 p-3 min-w-0 flex flex-col justify-between">
+                          <div>
+                            {/* Title + Status */}
+                            <div className="flex items-start gap-2 mb-1">
+                              <h3 className="text-sm font-medium line-clamp-1 flex-1 min-w-0">
+                                {draft.title || "无标题草稿"}
+                              </h3>
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-[18px] shrink-0 border-0 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400">
+                                草稿
+                              </Badge>
+                            </div>
+
+                            {/* Content excerpt */}
+                            {draft.content && (
+                              <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed mb-2">
+                                {draft.content.slice(0, 80)}{draft.content.length > 80 ? "..." : ""}
+                              </p>
+                            )}
+
+                            {/* Tags */}
+                            {draft.tags && draft.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mb-2">
+                                {draft.tags.slice(0, 3).map((tag, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 font-medium"
+                                  >
+                                    #{tag}
+                                  </span>
+                                ))}
+                                {draft.tags.length > 3 && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground font-medium">
+                                    +{draft.tags.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Meta row */}
+                          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {formatRelativeDate(draft.createdAt)}
+                            </span>
+                            {draft.accountNickname && (
+                              <span className="ml-auto truncate max-w-[80px]">{draft.accountNickname}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+                );
+              }
+
+              const post = item.data;
               const totalEng = post.likes + post.comments + post.collects;
               const readsCount = post.likes * 8 + post.comments * 15 + post.shares * 30;
               return (
@@ -1685,7 +2196,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                           )}
                           <span className="ml-auto flex items-center gap-1 text-[10px]">
                             <Clock className="w-2.5 h-2.5" />
-                            {post.publishDate ? formatRelativeDate(post.publishDate) : ""}
+                            {post.publishDate ? formatRelativeDate(post.publishDate) : post.scrapedAt ? formatRelativeDate(post.scrapedAt) : ""}
                           </span>
                         </div>
                       </div>
@@ -1747,7 +2258,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                   <ChevronRight className="w-3.5 h-3.5 ml-1" />
                 </Button>
                 <span className="text-xs text-muted-foreground ml-2">
-                  共 {filteredPosts.length} 篇
+                  共 {allDisplayItems.length} 篇
                 </span>
               </div>
             )}
@@ -1925,6 +2436,150 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                   >
                     <Trash2 className="w-3.5 h-3.5 mr-1" />
                     删除
+                  </Button>
+                </div>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Draft Detail Dialog */}
+      <Dialog
+        open={!!selectedDraft}
+        onOpenChange={(open) => !open && setSelectedDraft(null)}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+          {selectedDraft && (
+            <>
+              <DialogHeader className="shrink-0">
+                <div className="flex items-center gap-2">
+                  <DialogTitle className="text-left text-lg">
+                    {selectedDraft.title || "无标题草稿"}
+                  </DialogTitle>
+                  <DraftStatusBadge status={selectedDraft.status} />
+                </div>
+              </DialogHeader>
+              <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
+                <div className="space-y-4">
+                  {/* Tags */}
+                  {selectedDraft.tags && selectedDraft.tags.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                        <Hash className="w-3 h-3" />
+                        标签
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedDraft.tags.map((tag, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs border-0 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-950/50">
+                            #{tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedDraft.tags && selectedDraft.tags.length > 0 && <Separator />}
+
+                  {/* Content */}
+                  {selectedDraft.content && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
+                        正文内容
+                      </p>
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                        {selectedDraft.content}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* AI Suggestions */}
+                  {selectedDraft.aiSuggestions && (
+                    <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-4 border border-amber-200/50 dark:border-amber-900/30">
+                      <p className="text-xs font-semibold flex items-center gap-1.5 mb-2">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                        AI 建议
+                      </p>
+                      <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">
+                        {selectedDraft.aiSuggestions}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Cover Prompt */}
+                  {selectedDraft.coverPrompt && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                        <Palette className="w-3 h-3" />
+                        封面提示词
+                      </p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                        {selectedDraft.coverPrompt}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Meta */}
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      创建于 {formatRelativeDate(selectedDraft.createdAt)}
+                    </span>
+                    {selectedDraft.updatedAt !== selectedDraft.createdAt && (
+                      <span className="flex items-center gap-1">
+                        · 更新于 {formatRelativeDate(selectedDraft.updatedAt)}
+                      </span>
+                    )}
+                    {selectedDraft.accountNickname && (
+                      <span className="flex items-center gap-1">
+                        · {selectedDraft.accountNickname}
+                      </span>
+                    )}
+                    {selectedDraft.aiModel && (
+                      <span className="flex items-center gap-1">
+                        · {selectedDraft.aiModel}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Footer */}
+              <DialogFooter className="flex-row gap-2 sm:justify-between border-t border-border/50 pt-4 shrink-0 -mx-6 px-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs border-border"
+                  onClick={() => {
+                    setSelectedDraft(null);
+                    setCreatorSheetOpen(true);
+                  }}
+                >
+                  <PenLine className="w-3.5 h-3.5 mr-1" />
+                  在创作中编辑
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs border-border"
+                    onClick={handleCopyDraftContent}
+                  >
+                    {draftCopied ? (
+                      <Check className="w-3.5 h-3.5 mr-1 text-emerald-500" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5 mr-1" />
+                    )}
+                    {draftCopied ? "已复制" : "复制内容"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDeleteDraft(selectedDraft.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    删除草稿
                   </Button>
                 </div>
               </DialogFooter>

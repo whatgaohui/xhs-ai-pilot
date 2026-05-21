@@ -66,11 +66,11 @@ async function callScraperService(
   cookies: string
 ): Promise<ScrapeResultData | null> {
   try {
-    const res = await fetch(`${SCRAPER_SERVICE_URL}/api/scrape/profile`, {
+    const res = await fetch(`${SCRAPER_SERVICE_URL}/api/scrape/profile-with-details`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, cookies }),
-      signal: AbortSignal.timeout(60_000),
+      signal: AbortSignal.timeout(120_000),
     });
     if (!res.ok) {
       console.error(`[scrape] service returned ${res.status}`);

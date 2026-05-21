@@ -38,6 +38,7 @@ export interface XhsPostInfo {
   aiScore: number;
   aiAnalysis: string;
   publishDate: string;
+  scrapedAt?: string;
 }
 
 // ─── Persona Types ─────────────────────────────────────────────────────
