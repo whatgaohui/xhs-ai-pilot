@@ -547,8 +547,32 @@ export function LibraryView() {
       setAiCategory("");
       fetchAssets();
     } catch (err) {
+      // The API may have succeeded but the connection timed out (AI generation
+      // can take 30-60s). Check whether a new ai-generated image appeared.
+      console.warn("[AI generate] Request error, checking if image was created:", err);
+      try {
+        // Brief delay to let DB write complete
+        await new Promise(r => setTimeout(r, 1500));
+        const checkRes = await fetch("/api/media?source=ai-generated&limit=1");
+        const checkData = await checkRes.json();
+        if (checkData.success && checkData.data?.items?.length > 0) {
+          const latest = checkData.data.items[0];
+          // If the latest AI image was created within the last 2 minutes, it's ours
+          const ageMs = Date.now() - new Date(latest.createdAt).getTime();
+          if (ageMs < 120_000) {
+            toast.success("AI 图片已生成（响应延迟，但图片已保存）");
+            setAiGenDialogOpen(false);
+            setAiPrompt("");
+            setAiCategory("");
+            fetchAssets();
+            return;
+          }
+        }
+      } catch {
+        // Verification also failed — fall through to error message
+      }
       const msg = err instanceof Error ? err.message : "AI 生成失败";
-      toast.error(msg);
+      toast.error(msg, { description: "图片可能仍在生成中，稍后刷新查看" });
     } finally {
       setAiGenerating(false);
     }
