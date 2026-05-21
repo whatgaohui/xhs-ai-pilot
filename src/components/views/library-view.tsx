@@ -537,14 +537,18 @@ export function LibraryView() {
           category: aiCategory || undefined,
         }),
       });
-      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || `生成失败 (${res.status})`);
+      }
       toast.success("AI 图片生成成功");
       setAiGenDialogOpen(false);
       setAiPrompt("");
       setAiCategory("");
       fetchAssets();
-    } catch {
-      toast.error("AI 生成失败");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "AI 生成失败";
+      toast.error(msg);
     } finally {
       setAiGenerating(false);
     }

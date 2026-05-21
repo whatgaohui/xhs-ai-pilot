@@ -13,6 +13,19 @@ import ZAI from 'z-ai-web-dev-sdk';
 const UPLOAD_DIR = path.join('/home/z/my-project', 'public', 'uploads');
 const THUMB_DIR = path.join(UPLOAD_DIR, 'thumbs');
 
+// Supported image sizes for the AI generation API
+const SUPPORTED_SIZES = [
+  '1024x1024',
+  '768x1344',
+  '864x1152',
+  '1344x768',
+  '1152x864',
+  '1440x720',
+  '720x1440',
+] as const;
+
+type SupportedSize = (typeof SUPPORTED_SIZES)[number];
+
 // ─── Helper: DB row → MediaAssetInfo ────────────────────────────────────
 
 function toMediaAssetInfo(row: Record<string, unknown>) {
@@ -70,15 +83,28 @@ export async function POST(request: Request) {
       );
     }
 
+    // Validate and normalize size parameter
+    let normalizedSize: SupportedSize = '1024x1024';
+    if (size && typeof size === 'string') {
+      if ((SUPPORTED_SIZES as readonly string[]).includes(size)) {
+        normalizedSize = size as SupportedSize;
+      } else {
+        console.warn(`[media/generate] Unsupported size "${size}", falling back to 1024x1024`);
+      }
+    }
+
+    console.log(`[media/generate] Generating image: prompt="${prompt.trim().slice(0, 50)}..." size=${normalizedSize}`);
+
     // Generate image using z-ai-web-dev-sdk
     const zai = await ZAI.create();
     const response = await zai.images.generations.create({
       prompt: prompt.trim(),
-      size: size || '1024x1024',
+      size: normalizedSize,
     });
 
-    const imageBase64 = response.data[0]?.base64;
+    const imageBase64 = response.data?.[0]?.base64;
     if (!imageBase64) {
+      console.error('[media/generate] No base64 data in response:', JSON.stringify(response).slice(0, 200));
       return NextResponse.json(
         { success: false, error: 'AI 生成图片失败，未返回图片数据' },
         { status: 500 }
@@ -135,6 +161,8 @@ export async function POST(request: Request) {
         source: 'ai-generated',
       },
     }));
+
+    console.log(`[media/generate] Image saved: ${uniqueName} (${width}x${height}, ${imageBuffer.length} bytes)`);
 
     return NextResponse.json({
       success: true,
