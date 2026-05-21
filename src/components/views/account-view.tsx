@@ -657,7 +657,7 @@ export function AccountView({ sharedAccountData, onNavigateToNotes, onOpenCreato
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>取消</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDeleteAccount}>确定删除</AlertDialogAction>
+                      <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-white hover:bg-destructive/90">确定删除</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>

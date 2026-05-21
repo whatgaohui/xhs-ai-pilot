@@ -391,7 +391,7 @@ body::before {
 [data-slot="alert-dialog-content"],
 [data-slot="popover-content"] {
   background-color: hsl(var(--popover)) !important;
-  color: hsl(var(--popover-foreground)) !important;
+  color: hsl(var(--popover-foreground));
   border: 1px solid hsl(var(--border)) !important;
   border-radius: var(--radius);
   box-shadow:

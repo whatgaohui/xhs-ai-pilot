@@ -53,3 +53,28 @@ Stage Summary:
 - Page renders with sidebar, navigation, and dashboard skeleton
 - Microservices respond to health checks on their respective ports
 - App accessible through Caddy gateway on port 81
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix confirmation button display issues in dialogs
+
+Work Log:
+- Analyzed user screenshot showing "确认删除" dialog with button text not visible
+- Used VLM to identify the right button had red outline but no visible text
+- Root cause: `globals.css` line 394 had `color: hsl(var(--popover-foreground)) !important;` on `[data-slot="alert-dialog-content"]` and `[data-slot="dialog-content"]`
+- The `!important` on `color` overrode all button text colors inside dialogs, making `text-white` invisible
+- Fixed `globals.css`: Removed `!important` from `color` property (kept it on `background-color` and `border`)
+- Fixed `alert-dialog.tsx`: Changed `AlertDialogAction` from `buttonVariants()` (default/primary) to `buttonVariants({ variant: "destructive" })` for semantic correctness
+- Fixed `account-view.tsx`: Added `className="bg-destructive text-white hover:bg-destructive/90"` to the delete account AlertDialogAction button
+- Verified `library-view.tsx` already had correct destructive styling
+- Verified `content-view.tsx` already had correct destructive styling
+- Verified all other dialog buttons (add-account, edit-account, export, cookie-input, manual-data, settings) use `text-white` with colored backgrounds and will now work correctly
+- Confirmed no compilation errors after changes
+- Page loads successfully with fixes applied via HMR
+
+Stage Summary:
+- Fixed root cause: Removed `!important` from `color` in dialog content CSS
+- Fixed AlertDialogAction base component to use destructive variant by default
+- Fixed account-view.tsx delete button with explicit destructive styling
+- All dialog buttons across the app should now display correctly
