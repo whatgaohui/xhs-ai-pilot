@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -556,7 +556,7 @@ export function DashboardView() {
       }
       if (postsData.success) setRecentPosts(postsData.data || []);
       setLastUpdated(new Date());
-      if (isRefresh) toast.success("数据已刷新");
+      // Success toast is now shown by the refresh button handler with sync guidance
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
       if (isRefresh) toast.error("刷新失败，请重试");
@@ -570,48 +570,61 @@ export function DashboardView() {
     setExportDialogOpen(true);
   };
 
+  // Filter posts by selected date range
+  const filteredPosts = useMemo(() => {
+    if (recentPosts.length === 0) return [];
+    const now = new Date();
+    const cutoff = new Date(now);
+    cutoff.setDate(cutoff.getDate() - dateRange);
+    return recentPosts.filter((p) => {
+      if (!p.publishDate) return false;
+      const pubDate = new Date(p.publishDate);
+      return pubDate >= cutoff;
+    });
+  }, [recentPosts, dateRange]);
+
   // Computed stats
   const totalAccounts = accounts.length;
   const totalPosts = accounts.reduce((sum, a) => sum + (a.postsCount || a.notesCount || 0), 0);
   const totalFollowers = accounts.reduce((sum, a) => sum + (a.followers || 0), 0);
   const avgEngagement =
-    recentPosts.length > 0
+    filteredPosts.length > 0
       ? Math.round(
-          recentPosts.reduce(
+          filteredPosts.reduce(
             (sum, p) => sum + p.likes + p.comments + p.collects,
             0
-          ) / recentPosts.length
+          ) / filteredPosts.length
         )
       : 0;
 
   // Engagement rate calculation
-  const engagementRate = totalFollowers > 0 && recentPosts.length > 0
-    ? ((recentPosts.reduce((s, p) => s + p.likes + p.comments + p.collects, 0) / recentPosts.length) / totalFollowers * 100).toFixed(1)
+  const engagementRate = totalFollowers > 0 && filteredPosts.length > 0
+    ? ((filteredPosts.reduce((s, p) => s + p.likes + p.comments + p.collects, 0) / filteredPosts.length) / totalFollowers * 100).toFixed(1)
     : "0";
 
   // Engagement rate sub-rates
-  const likeRate = totalFollowers > 0 && recentPosts.length > 0
-    ? ((recentPosts.reduce((s, p) => s + p.likes, 0) / recentPosts.length) / totalFollowers * 100).toFixed(1)
+  const likeRate = totalFollowers > 0 && filteredPosts.length > 0
+    ? ((filteredPosts.reduce((s, p) => s + p.likes, 0) / filteredPosts.length) / totalFollowers * 100).toFixed(1)
     : "0";
-  const commentRate = totalFollowers > 0 && recentPosts.length > 0
-    ? ((recentPosts.reduce((s, p) => s + p.comments, 0) / recentPosts.length) / totalFollowers * 100).toFixed(1)
+  const commentRate = totalFollowers > 0 && filteredPosts.length > 0
+    ? ((filteredPosts.reduce((s, p) => s + p.comments, 0) / filteredPosts.length) / totalFollowers * 100).toFixed(1)
     : "0";
-  const collectRate = totalFollowers > 0 && recentPosts.length > 0
-    ? ((recentPosts.reduce((s, p) => s + p.collects, 0) / recentPosts.length) / totalFollowers * 100).toFixed(1)
+  const collectRate = totalFollowers > 0 && filteredPosts.length > 0
+    ? ((filteredPosts.reduce((s, p) => s + p.collects, 0) / filteredPosts.length) / totalFollowers * 100).toFixed(1)
     : "0";
 
   // Best posting time analysis
-  const postingTimeInsights = analyzePostingTimes(recentPosts);
+  const postingTimeInsights = analyzePostingTimes(filteredPosts);
 
   // Top performing post
-  const topPost = recentPosts.length > 0
-    ? recentPosts.reduce((best, p) =>
+  const topPost = filteredPosts.length > 0
+    ? filteredPosts.reduce((best, p) =>
         (p.likes + p.comments + p.collects) > (best.likes + best.comments + best.collects) ? p : best
-      , recentPosts[0])
+      , filteredPosts[0])
     : null;
 
   // Activity feed
-  const activityFeed = generateActivityFeed(accounts, recentPosts);
+  const activityFeed = generateActivityFeed(accounts, filteredPosts);
 
   // Stat sparkline data for each card
   const statSparklines = {
@@ -645,13 +658,14 @@ export function DashboardView() {
     { key: "rate" as const, label: "互动率", icon: Target, value: `${engagementRate}%`, bg: "stat-icon-gradient-xhs", textColor: "text-white", sparkColor: "#FF2442" },
   ] as const;
 
-  // Area chart data for 7-day trend
+  // Area chart data for trend based on filtered posts
   const areaChartData = (() => {
     const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
     return {
       labels: days,
       data: days.map((_, i) => {
-        const post = recentPosts[i % recentPosts.length];
+        if (filteredPosts.length === 0) return 0;
+        const post = filteredPosts[i % filteredPosts.length];
         return (post?.likes || 0) + (post?.comments || 0) + (post?.collects || 0);
       }),
     };
@@ -743,7 +757,10 @@ export function DashboardView() {
               variant="outline"
               size="sm"
               className="border-border hidden sm:inline-flex"
-              onClick={() => loadData(true)}
+              onClick={async () => {
+                await loadData(true);
+                toast.info("数据已刷新。如需同步最新笔记，请前往账号中心点击「同步笔记」");
+              }}
               disabled={refreshing}
             >
               <RefreshCw className={cn("w-4 h-4 mr-1", refreshing && "animate-spin")} />
@@ -761,7 +778,11 @@ export function DashboardView() {
             <Button
               size="sm"
               className="btn-gradient-brand text-white border-0"
-              onClick={() => setActiveTab("creator")}
+              onClick={() => {
+                setActiveTab("account-hub");
+                useAppStore.getState().setAccountHubTab("notes");
+                useAppStore.getState().setCreatorSheetOpen(true);
+              }}
             >
               <PenLine className="w-4 h-4 mr-1" />
               创作
@@ -867,7 +888,7 @@ export function DashboardView() {
               {(() => {
                 const dayLabels = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
                 return dayLabels.map((day, i) => {
-                  const post = recentPosts[i % recentPosts.length];
+                  const post = filteredPosts.length > 0 ? filteredPosts[i % filteredPosts.length] : null;
                   const currentWeek = post ? (post.likes || 0) + (post.comments || 0) + (post.collects || 0) : 0;
                   const prevWeek = Math.round(currentWeek * (0.6 + Math.sin(i * 2.1) * 0.4));
                   const diff = currentWeek - prevWeek;
@@ -910,7 +931,7 @@ export function DashboardView() {
       {/* ─── Two-column layout: Data Overview + Insights ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Data Overview - Enhanced with Area Chart */}
-        {recentPosts.length > 0 && (
+        {filteredPosts.length > 0 && (
           <Card className="lg:col-span-2 overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -921,10 +942,10 @@ export function DashboardView() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {(() => {
-                  const totalLikes = recentPosts.reduce((s, p) => s + p.likes, 0);
-                  const totalComments = recentPosts.reduce((s, p) => s + p.comments, 0);
-                  const totalCollects = recentPosts.reduce((s, p) => s + p.collects, 0);
-                  const totalShares = recentPosts.reduce((s, p) => s + p.shares, 0);
+                  const totalLikes = filteredPosts.reduce((s, p) => s + p.likes, 0);
+                  const totalComments = filteredPosts.reduce((s, p) => s + p.comments, 0);
+                  const totalCollects = filteredPosts.reduce((s, p) => s + p.collects, 0);
+                  const totalShares = filteredPosts.reduce((s, p) => s + p.shares, 0);
                   const items = [
                     { label: "总点赞", value: totalLikes, icon: Heart, color: "text-red-500", bg: "bg-red-50 dark:bg-red-950/20" },
                     { label: "总评论", value: totalComments, icon: MessageCircle, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950/20" },
@@ -958,12 +979,12 @@ export function DashboardView() {
                 })()}
               </div>
               {/* Area chart replacing bar chart */}
-              {recentPosts.length > 1 && (
+              {filteredPosts.length > 1 && (
                 <div className="mt-4 pt-4 border-t border-border/50">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs font-medium text-muted-foreground">近7日互动趋势</p>
                     <p className="text-[10px] text-muted-foreground">
-                      总计 {formatNumber(recentPosts.reduce((s, p) => s + p.likes + p.comments + p.collects, 0))} 互动
+                      总计 {formatNumber(filteredPosts.reduce((s, p) => s + p.likes + p.comments + p.collects, 0))} 互动
                     </p>
                   </div>
                   <AreaChart data={areaChartData.data} labels={areaChartData.labels} height={160} />
@@ -1190,7 +1211,7 @@ export function DashboardView() {
       />
 
       {/* Recent Posts */}
-      {recentPosts.length > 0 && (
+      {filteredPosts.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold">最近笔记</h3>
@@ -1205,7 +1226,7 @@ export function DashboardView() {
             </Button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {recentPosts.slice(0, 6).map((post, i) => (
+            {filteredPosts.slice(0, 6).map((post, i) => (
               <Card key={post.id} className="overflow-hidden card-hover stagger-item" style={{ animationDelay: `${i * 0.05}s` }}>
                 <div className="aspect-[16/9] bg-muted relative group">
                   {post.coverUrl ? (

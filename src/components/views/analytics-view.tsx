@@ -27,6 +27,13 @@ import {
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/components/account-card";
 import { PageHeader } from "@/components/ui/page-header";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { XhsPostInfo, XhsAccountInfo } from "@/types";
 import {
   BarChart3,
@@ -114,6 +121,7 @@ export function AnalyticsView() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("funnel");
   const [tabAnimating, setTabAnimating] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
 
   useEffect(() => {
     loadData();
@@ -145,18 +153,29 @@ export function AnalyticsView() {
 
   // ─── Computed Data ──────────────────────────────────────────────────
 
-  const totalFollowers = accounts.reduce((s, a) => s + (a.followers || 0), 0);
+  const filteredPosts = useMemo(() => {
+    if (selectedAccountId === "all") return posts;
+    return posts.filter((p) => p.accountId === selectedAccountId);
+  }, [posts, selectedAccountId]);
+
+  const totalFollowers = useMemo(() => {
+    if (selectedAccountId === "all") {
+      return accounts.reduce((s, a) => s + (a.followers || 0), 0);
+    }
+    const acc = accounts.find((a) => a.id === selectedAccountId);
+    return acc?.followers || 0;
+  }, [accounts, selectedAccountId]);
 
   const funnelData = useMemo((): FunnelStage[] => {
     const totalImpressions = Math.max(
-      posts.reduce((s, p) => s + (p.likes + p.comments + p.collects + p.shares) * 8, 0),
+      filteredPosts.reduce((s, p) => s + (p.likes + p.comments + p.collects + p.shares) * 8, 0),
       10000
     );
     const totalViews = Math.round(totalImpressions * 0.62);
-    const totalLikes = posts.reduce((s, p) => s + p.likes, 0) || 1250;
-    const totalComments = posts.reduce((s, p) => s + p.comments, 0) || 380;
-    const totalCollects = posts.reduce((s, p) => s + p.collects, 0) || 520;
-    const totalShares = posts.reduce((s, p) => s + p.shares, 0) || 145;
+    const totalLikes = filteredPosts.reduce((s, p) => s + p.likes, 0) || 1250;
+    const totalComments = filteredPosts.reduce((s, p) => s + p.comments, 0) || 380;
+    const totalCollects = filteredPosts.reduce((s, p) => s + p.collects, 0) || 520;
+    const totalShares = filteredPosts.reduce((s, p) => s + p.shares, 0) || 145;
 
     return [
       {
@@ -202,13 +221,13 @@ export function AnalyticsView() {
         bgColor: "bg-violet-50 dark:bg-violet-950/20",
       },
     ];
-  }, [posts]);
+  }, [filteredPosts]);
 
   const categoryData = useMemo((): CategoryItem[] => {
-    if (posts.length === 0) return getSimulatedCategories();
+    if (filteredPosts.length === 0) return getSimulatedCategories();
 
     const catMap = new Map<string, { count: number; totalEng: number }>();
-    for (const p of posts) {
+    for (const p of filteredPosts) {
       const cat = p.category || "未分类";
       const existing = catMap.get(cat) || { count: 0, totalEng: 0 };
       existing.count++;
@@ -216,7 +235,7 @@ export function AnalyticsView() {
       catMap.set(cat, existing);
     }
 
-    const total = posts.length;
+    const total = filteredPosts.length;
     const colors = [
       "#FF2442", "#f59e0b", "#10b981", "#8b5cf6",
       "#ec4899", "#06b6d4", "#f97316", "#6366f1",
@@ -232,7 +251,7 @@ export function AnalyticsView() {
         percentage: Math.round((data.count / total) * 100),
       }))
       .sort((a, b) => b.count - a.count);
-  }, [posts]);
+  }, [filteredPosts]);
 
   const ageData = useMemo((): AgeGroup[] => {
     return [
@@ -244,17 +263,21 @@ export function AnalyticsView() {
   }, [totalFollowers]);
 
   const competitorMetrics = useMemo((): CompetitorMetric[] => {
-    const avgFollowers = accounts.length > 0
-      ? Math.round(accounts.reduce((s, a) => s + a.followers, 0) / accounts.length)
-      : 5200;
-    const avgEng = posts.length > 0
-      ? posts.reduce((s, p) => s + p.likes + p.comments + p.collects, 0) / posts.length / Math.max(totalFollowers, 1) * 100
+    const avgFollowers = selectedAccountId !== "all"
+      ? (accounts.find((a) => a.id === selectedAccountId)?.followers || 5200)
+      : (accounts.length > 0
+        ? Math.round(accounts.reduce((s, a) => s + a.followers, 0) / accounts.length)
+        : 5200);
+    const avgEng = filteredPosts.length > 0
+      ? filteredPosts.reduce((s, p) => s + p.likes + p.comments + p.collects, 0) / filteredPosts.length / Math.max(totalFollowers, 1) * 100
       : 4.2;
-    const notesCount = accounts.length > 0
-      ? Math.round(accounts.reduce((s, a) => s + a.notesCount, 0) / accounts.length)
-      : 48;
-    const avgEngPerPost = posts.length > 0
-      ? Math.round(posts.reduce((s, p) => s + p.likes + p.comments + p.collects, 0) / posts.length)
+    const notesCount = selectedAccountId !== "all"
+      ? (accounts.find((a) => a.id === selectedAccountId)?.notesCount || 0)
+      : (accounts.length > 0
+        ? Math.round(accounts.reduce((s, a) => s + a.notesCount, 0) / accounts.length)
+        : 48);
+    const avgEngPerPost = filteredPosts.length > 0
+      ? Math.round(filteredPosts.reduce((s, p) => s + p.likes + p.comments + p.collects, 0) / filteredPosts.length)
       : 320;
     const growthSpeed = 12.5;
 
@@ -324,7 +347,7 @@ export function AnalyticsView() {
         trendData: genSparkline(Math.round(growthSpeed), 3),
       },
     ];
-  }, [accounts, posts, totalFollowers]);
+  }, [accounts, filteredPosts, totalFollowers, selectedAccountId]);
 
   // ─── Loading State ──────────────────────────────────────────────────
 
@@ -355,17 +378,32 @@ export function AnalyticsView() {
         <PageHeader
           icon={<BarChart3 className="w-5 h-5" />}
           title="数据洞察"
-          subtitle="深度分析运营数据，发现增长机会"
+          subtitle={`深度分析运营数据${selectedAccountId !== "all" ? ` · ${accounts.find(a => a.id === selectedAccountId)?.nickname || ""}` : ""}，发现增长机会`}
           actions={
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-border"
-              onClick={loadData}
-            >
-              <RefreshCw className="w-4 h-4 mr-1" />
-              刷新
-            </Button>
+            <div className="flex items-center gap-2">
+              <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                <SelectTrigger className="w-[140px] h-9 text-xs">
+                  <SelectValue placeholder="选择账号" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部账号</SelectItem>
+                  {accounts.map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      {acc.nickname || "未命名"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-border"
+                onClick={loadData}
+              >
+                <RefreshCw className="w-4 h-4 mr-1" />
+                刷新
+              </Button>
+            </div>
           }
         />
 
@@ -390,6 +428,17 @@ export function AnalyticsView() {
             </TabsTrigger>
           </TabsList>
 
+          {/* Empty state for selected account with no posts */}
+          {selectedAccountId !== "all" && filteredPosts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                <BarChart3 className="w-8 h-8 text-muted-foreground/50" />
+              </div>
+              <p className="text-sm text-muted-foreground">该账号暂无笔记数据</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">选择其他账号或查看全部账号数据</p>
+            </div>
+          ) : (
+          <>
           {/* ─── Tab 1: 互动漏斗 ──────────────────────────────────────── */}
           <TabsContent value="funnel" className="space-y-5 mt-4">
             {/* Funnel Summary */}
@@ -826,6 +875,8 @@ export function AnalyticsView() {
               </CardContent>
             </Card>
           </TabsContent>
+          </>
+          )}
         </Tabs>
       </div>
     </TooltipProvider>

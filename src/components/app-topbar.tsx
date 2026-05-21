@@ -6,11 +6,9 @@ import {
   Moon,
   Sun,
   Search,
-  Sparkles,
   Command as CommandIcon,
   ChevronRight,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 
@@ -94,23 +92,6 @@ export function AppTopbar() {
 
       {/* Right: actions */}
       <div className="flex items-center gap-1.5">
-        {/* Quick AI create button — open Creator sheet (works on any page) */}
-        <Button
-          size="sm"
-          className={cn(
-            "hidden lg:inline-flex h-8 px-3 gap-1.5",
-            "btn-gradient-brand text-white border-0 text-xs font-semibold rounded-lg"
-          )}
-          onClick={() => {
-            useAppStore.getState().setActiveTab("account-hub");
-            useAppStore.getState().setAccountHubTab("notes");
-            useAppStore.getState().setCreatorSheetOpen(true);
-          }}
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          AI 创作
-        </Button>
-
         {/* Mobile search */}
         <button
           onClick={() => setPaletteOpen(true)}

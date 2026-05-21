@@ -9,6 +9,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +36,7 @@ import {
   Save,
   User,
   Lock,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { XhsAccountInfo } from "@/types";
@@ -35,6 +47,7 @@ interface EditAccountDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  onDelete?: () => void;
   /** If true, focus on the cookie section when opening */
   focusCookies?: boolean;
 }
@@ -44,9 +57,11 @@ export function EditAccountDialog({
   open,
   onOpenChange,
   onSuccess,
+  onDelete,
   focusCookies = false,
 }: EditAccountDialogProps) {
   const [loading, setLoading] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [cookieSaving, setCookieSaving] = useState(false);
   const [cookieValidating, setCookieValidating] = useState(false);
   const [cookieValidated, setCookieValidated] = useState<boolean | null>(null);
@@ -414,6 +429,43 @@ export function EditAccountDialog({
         </div>
 
         <DialogFooter className="gap-2 shrink-0 border-t border-border/40 pt-4 -mx-6 px-6">
+          {/* Delete button - left side */}
+          {onDelete && account && (
+            <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="text-destructive/60 hover:text-destructive hover:bg-destructive/10 mr-auto"
+                  disabled={loading}
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  删除账号
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>确认删除账号</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    确定要删除账号「{account.nickname || "未命名用户"}」吗？该账号下的所有笔记、人设和草稿数据将被永久删除，此操作不可撤销。
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>取消</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => {
+                      setDeleteConfirmOpen(false);
+                      onOpenChange(false);
+                      onDelete();
+                    }}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    确认删除
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          <div className="flex-1" />
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

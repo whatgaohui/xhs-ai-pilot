@@ -763,6 +763,15 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
     loadAccounts();
   }, []);
 
+  // When in hub, auto-set filter to selected account
+  useEffect(() => {
+    if (isInHub && sharedAccountData?.selectedAccountId) {
+      if (filterAccountId !== sharedAccountData.selectedAccountId) {
+        setFilterAccountId(sharedAccountData.selectedAccountId);
+      }
+    }
+  }, [isInHub, sharedAccountData?.selectedAccountId, filterAccountId]);
+
   useEffect(() => {
     loadPosts();
   }, [sortBy, filterAccountId]);
@@ -1060,6 +1069,19 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
     );
   }
 
+  if (isInHub && sharedAccountData?.selectedAccountId && filterAccountId === sharedAccountData.selectedAccountId && posts.length === 0) {
+    const selectedAccount = accounts.find((a) => a.id === sharedAccountData.selectedAccountId);
+    return (
+      <div className="p-4 md:p-6 view-animate">
+        <EmptyState
+          icon={FileText}
+          title="该账号暂无笔记"
+          description={selectedAccount ? `「${selectedAccount.nickname || "未命名"}」还没有采集到笔记数据，请先采集数据` : "该账号还没有笔记数据"}
+        />
+      </div>
+    );
+  }
+
   if (posts.length === 0 && accounts.length === 0) {
     return (
       <div className="p-4 md:p-6 view-animate">
@@ -1330,7 +1352,8 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
       {viewMode !== "schedule" && showFilters && (
         <Card className="border border-border/60 shadow-sm">
           <CardContent className="p-3 space-y-3">
-            {/* Account filter */}
+            {/* Account filter — hidden in hub mode since it's auto-filtered */}
+            {!isInHub && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-16 shrink-0">账号</span>
               <div className="flex flex-wrap gap-1.5">
@@ -1361,6 +1384,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                 ))}
               </div>
             </div>
+            )}
 
             <Separator className="opacity-50" />
 

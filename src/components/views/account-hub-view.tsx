@@ -350,6 +350,7 @@ export function AccountHubView() {
           onOpenChange={setEditDialogOpen}
           onSuccess={handleEditSuccess}
           focusCookies={editFocusCookies}
+          onDelete={handleDeleteAccount}
         />
 
         {/* Cookie Input / Scrape Dialog (shared from header) */}
