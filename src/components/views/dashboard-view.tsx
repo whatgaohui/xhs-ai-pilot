@@ -370,7 +370,7 @@ function AreaChart({ data, labels, height = 160 }: { data: number[]; labels: str
   );
 }
 
-/** SVG Donut/Ring Chart for engagement rate */
+/** SVG Donut/Ring Chart for engagement rate — compact version */
 function EngagementRingChart({
   rate,
   likeRate,
@@ -382,8 +382,8 @@ function EngagementRingChart({
   commentRate: string;
   collectRate: string;
 }) {
-  const size = 120;
-  const strokeWidth = 10;
+  const size = 80;
+  const strokeWidth = 7;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const center = size / 2;
@@ -406,75 +406,35 @@ function EngagementRingChart({
   const commentOffset = likeLen;
   const collectOffset = likeLen + commentLen;
 
-  // Scale the total fill to represent the rate visually (max ~10% = full ring)
   const fillScale = Math.min(numRate / 10, 1);
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-3">
       <div className="relative shrink-0">
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="transform -rotate-90">
-          {/* Background ring */}
-          <circle
-            cx={center} cy={center} r={radius}
-            fill="none"
-            stroke="currentColor"
-            strokeOpacity="0.06"
-            strokeWidth={strokeWidth}
-          />
-          {/* Collect segment - amber */}
-          <circle
-            cx={center} cy={center} r={radius}
-            fill="none"
-            stroke="#f59e0b"
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={`${collectLen * fillScale} ${circumference}`}
-            strokeDashoffset={-collectOffset * fillScale}
-            className="transition-all duration-700 ease-out"
-          />
-          {/* Comment segment - emerald */}
-          <circle
-            cx={center} cy={center} r={radius}
-            fill="none"
-            stroke="#10b981"
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={`${commentLen * fillScale} ${circumference}`}
-            strokeDashoffset={-commentOffset * fillScale}
-            className="transition-all duration-700 ease-out"
-          />
-          {/* Like segment - red */}
-          <circle
-            cx={center} cy={center} r={radius}
-            fill="none"
-            stroke="#f43f5e"
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={`${likeLen * fillScale} ${circumference}`}
-            strokeDashoffset={-likeOffset}
-            className="transition-all duration-700 ease-out"
-          />
+          <circle cx={center} cy={center} r={radius} fill="none" stroke="currentColor" strokeOpacity="0.06" strokeWidth={strokeWidth} />
+          <circle cx={center} cy={center} r={radius} fill="none" stroke="#f59e0b" strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={`${collectLen * fillScale} ${circumference}`} strokeDashoffset={-collectOffset * fillScale} className="transition-all duration-700 ease-out" />
+          <circle cx={center} cy={center} r={radius} fill="none" stroke="#10b981" strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={`${commentLen * fillScale} ${circumference}`} strokeDashoffset={-commentOffset * fillScale} className="transition-all duration-700 ease-out" />
+          <circle cx={center} cy={center} r={radius} fill="none" stroke="#f43f5e" strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={`${likeLen * fillScale} ${circumference}`} strokeDashoffset={-likeOffset} className="transition-all duration-700 ease-out" />
         </svg>
-        {/* Center number */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-bold tracking-tight">{rate}%</span>
-          <span className="text-[9px] text-muted-foreground">互动率</span>
+          <span className="text-base font-bold tracking-tight">{rate}%</span>
+          <span className="text-[8px] text-muted-foreground">互动率</span>
         </div>
       </div>
-      {/* Legend */}
-      <div className="space-y-2.5 text-xs min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-red-400 shrink-0" />
+      <div className="space-y-1.5 text-xs min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
           <span className="text-muted-foreground">点赞率</span>
           <span className="font-semibold ml-auto">{likeRate}%</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
           <span className="text-muted-foreground">评论率</span>
           <span className="font-semibold ml-auto">{commentRate}%</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
           <span className="text-muted-foreground">收藏率</span>
           <span className="font-semibold ml-auto">{collectRate}%</span>
         </div>
@@ -995,93 +955,94 @@ export function DashboardView() {
           </Card>
         )}
 
-        {/* Insights Panel */}
+        {/* Insights Panel — compact single card */}
         <div className="space-y-4">
-          {/* Engagement Rate Card - Donut/Ring Chart */}
           <Card className="border-xhs/15 bg-gradient-to-br from-xhs-light/30 to-transparent">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-lg stat-icon-gradient-xhs flex items-center justify-center shadow-sm">
-                  <Zap className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">互动率分析</p>
-                </div>
-              </div>
-              <EngagementRingChart
-                rate={engagementRate}
-                likeRate={likeRate}
-                commentRate={commentRate}
-                collectRate={collectRate}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Best Posting Time */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-lg stat-icon-gradient-amber flex items-center justify-center shadow-sm">
-                  <Clock className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">最佳发布时间</p>
-                </div>
-              </div>
-              {postingTimeInsights.bestTime ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <CalendarClock className="w-4 h-4 text-amber-500" />
-                    <span className="text-sm font-semibold">{postingTimeInsights.bestTime}</span>
+            <CardContent className="p-4 space-y-4">
+              {/* Engagement Rate */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-md stat-icon-gradient-xhs flex items-center justify-center">
+                    <Zap className="w-3.5 h-3.5 text-white" />
                   </div>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">{postingTimeInsights.reason}</p>
-                  {postingTimeInsights.timeSlots.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {postingTimeInsights.timeSlots.map((slot, i) => (
-                        <Badge key={i} variant="secondary" className="text-[10px] border-0 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400">
-                          {slot}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
+                  <p className="text-xs font-medium text-muted-foreground">互动率分析</p>
                 </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">暂无足够数据分析最佳发布时间</p>
+                <EngagementRingChart
+                  rate={engagementRate}
+                  likeRate={likeRate}
+                  commentRate={commentRate}
+                  collectRate={collectRate}
+                />
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-border/40" />
+
+              {/* Best Posting Time */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-6 h-6 rounded-md stat-icon-gradient-amber flex items-center justify-center">
+                    <Clock className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <p className="text-xs font-medium text-muted-foreground">最佳发布时间</p>
+                </div>
+                {postingTimeInsights.bestTime ? (
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <CalendarClock className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="text-sm font-semibold">{postingTimeInsights.bestTime}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">{postingTimeInsights.reason}</p>
+                    {postingTimeInsights.timeSlots.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {postingTimeInsights.timeSlots.map((slot, i) => (
+                          <Badge key={i} variant="secondary" className="text-[10px] border-0 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400">
+                            {slot}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">暂无足够数据分析最佳发布时间</p>
+                )}
+              </div>
+
+              {/* Top Post — only show if exists */}
+              {topPost && (
+                <>
+                  <div className="border-t border-border/40" />
+                  <div
+                    className="cursor-pointer hover:bg-muted/30 -mx-2 px-2 py-1.5 rounded-lg transition-colors"
+                    onClick={() => setActiveTab("content")}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-6 h-6 rounded-md stat-icon-gradient-rose flex items-center justify-center">
+                        <Flame className="w-3.5 h-3.5 text-white" />
+                      </div>
+                      <p className="text-xs font-medium text-muted-foreground">最热笔记</p>
+                      <ArrowUpRight className="w-3 h-3 text-muted-foreground ml-auto" />
+                    </div>
+                    <p className="text-sm font-medium line-clamp-1 mb-1">{topPost.title || "无标题"}</p>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-0.5 text-red-500">
+                        <Heart className="w-3 h-3" />
+                        {formatNumber(topPost.likes)}
+                      </span>
+                      <span className="flex items-center gap-0.5 text-emerald-500">
+                        <MessageCircle className="w-3 h-3" />
+                        {formatNumber(topPost.comments)}
+                      </span>
+                      <span className="flex items-center gap-0.5 text-amber-500">
+                        <Bookmark className="w-3 h-3" />
+                        {formatNumber(topPost.collects)}
+                      </span>
+                    </div>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
-
-          {/* Top Post Card */}
-          {topPost && (
-            <Card className="cursor-pointer card-hover" onClick={() => setActiveTab("content")}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg stat-icon-gradient-rose flex items-center justify-center shadow-sm">
-                    <Flame className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">最热笔记</p>
-                  </div>
-                </div>
-                <p className="text-sm font-medium line-clamp-1 mb-1.5">{topPost.title || "无标题"}</p>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-0.5 text-red-500">
-                    <Heart className="w-3 h-3" />
-                    {formatNumber(topPost.likes)}
-                  </span>
-                  <span className="flex items-center gap-0.5 text-emerald-500">
-                    <MessageCircle className="w-3 h-3" />
-                    {formatNumber(topPost.comments)}
-                  </span>
-                  <span className="flex items-center gap-0.5 text-amber-500">
-                    <Bookmark className="w-3 h-3" />
-                    {formatNumber(topPost.collects)}
-                  </span>
-                  <ArrowUpRight className="w-3 h-3 text-muted-foreground ml-auto" />
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
 

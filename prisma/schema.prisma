@@ -69,6 +69,7 @@ model XhsPost {
   aiAnalysis    String   @default("")  // AI分析摘要
   
   publishDate   String   @default("")  // 发布日期 "2025-01-15"
+  xsecToken     String   @default("")  // xsec_token 用于详情采集
   scrapedAt     DateTime @default(now())
   
   createdAt     DateTime @default(now())

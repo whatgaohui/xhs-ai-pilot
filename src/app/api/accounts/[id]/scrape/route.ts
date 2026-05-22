@@ -143,6 +143,7 @@ export async function POST(
         tags: JSON.stringify(p.tags || []),
         category: "",
         publishDate: p.publishDate || "",
+        xsecToken: p.xsecToken || "",
       };
       let postId: string;
       if (existing) {

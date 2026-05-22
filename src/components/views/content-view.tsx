@@ -61,6 +61,8 @@ import {
   BookOpen,
   Palette,
   Play,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 
 type SortOption = "date" | "likes" | "comments" | "collects" | "aiScore";
@@ -926,6 +928,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
     createdAt: string;
   }>>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [scrapeCommentsLoading, setScrapeCommentsLoading] = useState(false);
   const [selectedDraft, setSelectedDraft] = useState<(ContentDraftInfo & { accountNickname?: string; accountAvatar?: string }) | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -1190,6 +1193,28 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
       setCommentsLoading(false);
     }
   }, []);
+
+  const handleScrapeComments = useCallback(async () => {
+    if (!selectedPost || scrapeCommentsLoading) return;
+    setScrapeCommentsLoading(true);
+    try {
+      const res = await fetch(`/api/posts/${selectedPost.id}/scrape-comments`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`采集完成：新增 ${data.data?.commentsSynced || 0} 条评论`);
+        // Reload comments
+        await loadPostComments(selectedPost.id);
+      } else {
+        toast.error(data.error || "采集评论失败");
+      }
+    } catch {
+      toast.error("采集评论失败");
+    } finally {
+      setScrapeCommentsLoading(false);
+    }
+  }, [selectedPost, scrapeCommentsLoading, loadPostComments]);
 
   const openPostDetail = useCallback((post: XhsPostInfo) => {
     setSelectedPost(post);
@@ -2469,10 +2494,24 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
 
                 {/* Comments Section */}
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
-                    <MessageCircle className="w-3 h-3" />
-                    评论（{selectedPost.comments}）
-                  </p>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                      <MessageCircle className="w-3 h-3" />
+                      评论（{selectedPost.comments}）
+                    </p>
+                    <button
+                      onClick={handleScrapeComments}
+                      disabled={scrapeCommentsLoading}
+                      className="flex items-center gap-1 text-[10px] text-xhs hover:text-xhs/80 disabled:opacity-50 transition-colors"
+                    >
+                      {scrapeCommentsLoading ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-3 h-3" />
+                      )}
+                      {scrapeCommentsLoading ? "采集中..." : "采集评论"}
+                    </button>
+                  </div>
                   {commentsLoading ? (
                     <div className="flex items-center justify-center py-6">
                       <div className="w-5 h-5 border-2 border-muted-foreground/30 border-t-xhs rounded-full animate-spin" />
@@ -2524,7 +2563,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                     <div className="text-center py-6">
                       <MessageCircle className="w-6 h-6 text-muted-foreground/30 mx-auto mb-2" />
                       <p className="text-xs text-muted-foreground/60">
-                        {selectedPost.comments > 0 ? "评论数据采集中，请重新采集获取" : "暂无评论"}
+                        {selectedPost.comments > 0 ? "评论采集中，请同步笔记后查看" : "暂无评论"}
                       </p>
                     </div>
                   )}

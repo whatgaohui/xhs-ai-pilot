@@ -113,7 +113,8 @@ export function AccountHubView() {
         await accountData.refreshAnalysis();
         const postsSynced = data.data?.postsSynced || 0;
         const postsFound = data.data?.postsFound || 0;
-        toast.success(`同步完成：发现 ${postsFound} 篇笔记，已同步 ${postsSynced} 篇`);
+        const commentsSynced = data.data?.commentsSynced || 0;
+        toast.success(`同步完成：发现 ${postsFound} 篇笔记，已同步 ${postsSynced} 篇，评论 ${commentsSynced} 条`);
       } else {
         toast.error(data.error || "同步失败");
       }
