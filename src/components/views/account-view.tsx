@@ -476,7 +476,10 @@ export function AccountView({ sharedAccountData, onNavigateToNotes, onOpenCreato
   // When in hub, use shared data; otherwise use standalone data
   const accounts = isInHub ? sharedAccountData!.accounts : standaloneAccounts;
   const currentAnalysis = isInHub ? sharedAccountData!.analysis : analysis;
-  const isLoading = isInHub ? (sharedAccountData!.loading && !sharedAccountData!.analysis) : (loading && !analysis);
+  const isAnalysisLoading = isInHub ? sharedAccountData!.analysisLoading : analysisLoading;
+  const isLoading = isInHub
+    ? (sharedAccountData!.loading && accounts.length === 0)
+    : (loading && !analysis);
   const selectedAccount = isInHub
     ? sharedAccountData!.selectedAccount
     : (accountDetail || standaloneAccounts.find((a) => a.id === selectedAccountId));
@@ -893,6 +896,35 @@ export function AccountView({ sharedAccountData, onNavigateToNotes, onOpenCreato
             }}
             actionLabel={currentStep <= 1 ? "补充账号信息" : "开始采集"}
           />
+        )}
+
+        {/* ─── Analysis Loading (in hub mode) ────────────────────────── */}
+        {!currentAnalysis && isInHub && account && account.status === "success" && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-muted animate-pulse" />
+                      <div className="space-y-2">
+                        <div className="h-5 w-12 rounded bg-muted animate-pulse" />
+                        <div className="h-3 w-16 rounded bg-muted/50 animate-pulse" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">正在加载分析数据...</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* ─── Standalone Dialogs ────────────────────────────────────── */}

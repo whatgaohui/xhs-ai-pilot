@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import type { XhsAccountInfo, ContentDraftInfo } from "@/types";
 import type { AccountDataState } from "@/hooks/use-account-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getMediaUrl, proxyXhsImage } from "@/lib/media-url";
 import {
   Sparkles,
   Send,
@@ -49,6 +50,9 @@ import {
   Target,
   MessageSquare,
   ExternalLink,
+  ImageIcon,
+  Film,
+  Upload,
 } from "lucide-react";
 
 type QuickTone = "default" | "warm" | "professional" | "witty" | "casual" | "elegant";
@@ -321,6 +325,20 @@ export function CreatorView({ sharedAccountData }: CreatorViewProps) {
   const [polishOriginal, setPolishOriginal] = useState("");
   const [showDiff, setShowDiff] = useState(false);
 
+  // AI Cover image generation
+  const [generatingCover, setGeneratingCover] = useState(false);
+  const [coverImageUrl, setCoverImageUrl] = useState("");
+
+  // Media files for publishing
+  const [mediaFiles, setMediaFiles] = useState<Array<{
+    id: string;
+    url: string;
+    type: "image" | "video";
+    originalName: string;
+    uploading: boolean;
+  }>>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Content quality score
   const qualityScore = useMemo(() => {
     if (!generatedContent && !generatedTitle) return null;
@@ -557,8 +575,25 @@ export function CreatorView({ sharedAccountData }: CreatorViewProps) {
       // Non-critical: continue to publish even if save fails
     }
 
-    // Copy content to clipboard
-    const text = `${generatedTitle}\n\n${generatedContent}\n\n${generatedTags.map((t) => `#${t}`).join(" ")}`;
+    // Copy content to clipboard with media URLs
+    let text = `${generatedTitle}\n\n${generatedContent}\n\n${generatedTags.map((t) => `#${t}`).join(" ")}`;
+
+    // Append media URLs if any
+    const uploadedMedia = mediaFiles.filter((f) => f.url && !f.uploading);
+    if (uploadedMedia.length > 0) {
+      text += "\n\n📷 媒体文件：\n";
+      for (const media of uploadedMedia) {
+        const mediaUrl = window.location.origin + getMediaUrl(media.url);
+        text += `${media.type === "video" ? "🎬" : "🖼️"} ${media.originalName}: ${mediaUrl}\n`;
+      }
+    }
+
+    // Append cover image URL if generated
+    if (coverImageUrl) {
+      const fullCoverUrl = window.location.origin + getMediaUrl(coverImageUrl);
+      text += `\n🖼️ 封面图: ${fullCoverUrl}\n`;
+    }
+
     await navigator.clipboard.writeText(text);
 
     // Open XHS creator page
@@ -617,6 +652,92 @@ export function CreatorView({ sharedAccountData }: CreatorViewProps) {
     setCurrentDraftId(null);
     setShowDiff(false);
     setSelectedTemplate(null);
+    setCoverImageUrl("");
+    setMediaFiles([]);
+  };
+
+  // ─── AI Cover Image Generation ─────────────────────────────────────────
+
+  const handleGenerateCoverImage = async () => {
+    if (!generatedCoverPrompt.trim()) {
+      toast.error("请先输入封面图提示词");
+      return;
+    }
+
+    setGeneratingCover(true);
+    try {
+      const res = await fetch("/api/content/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: generatedCoverPrompt.trim() }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setCoverImageUrl(data.data.url);
+        toast.success("封面图生成成功！");
+      } else {
+        toast.error(data.error || "封面图生成失败");
+      }
+    } catch {
+      toast.error("网络错误，请重试");
+    } finally {
+      setGeneratingCover(false);
+    }
+  };
+
+  // ─── Media File Upload for Publishing ──────────────────────────────────
+
+  const handleMediaUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const newFiles = Array.from(files).map((file) => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      url: "",
+      type: (file.type.startsWith("video/") ? "video" : "image") as "image" | "video",
+      originalName: file.name,
+      uploading: true,
+    }));
+
+    setMediaFiles((prev) => [...prev, ...newFiles]);
+
+    // Upload each file
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileId = newFiles[i].id;
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch("/api/content/upload-media", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          setMediaFiles((prev) =>
+            prev.map((f) =>
+              f.id === fileId
+                ? { ...f, url: data.data.url, uploading: false }
+                : f
+            )
+          );
+        } else {
+          // Remove failed upload
+          setMediaFiles((prev) => prev.filter((f) => f.id !== fileId));
+          toast.error(`${file.name} 上传失败: ${data.error}`);
+        }
+      } catch {
+        setMediaFiles((prev) => prev.filter((f) => f.id !== fileId));
+        toast.error(`${file.name} 上传失败`);
+      }
+    }
+  };
+
+  const removeMediaFile = (fileId: string) => {
+    setMediaFiles((prev) => prev.filter((f) => f.id !== fileId));
   };
 
   const handleSelectTemplate = (template: WritingTemplate) => {
@@ -1291,6 +1412,146 @@ export function CreatorView({ sharedAccountData }: CreatorViewProps) {
                     onChange={(e) => setGeneratedCoverPrompt(e.target.value)}
                     placeholder="描述封面图的画面内容..."
                   />
+                  {/* AI Cover Generation Button + Preview */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateCoverImage}
+                      disabled={generatingCover || !generatedCoverPrompt.trim()}
+                      className="border-xhs/30 text-xhs hover:bg-xhs-light/30 text-xs"
+                    >
+                      {generatingCover ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                          生成中...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5 mr-1" />
+                          AI 生成封面
+                        </>
+                      )}
+                    </Button>
+                    {coverImageUrl && !generatingCover && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-[10px] text-muted-foreground h-7"
+                        onClick={() => setCoverImageUrl("")}
+                      >
+                        <X className="w-3 h-3 mr-0.5" />
+                        清除封面
+                      </Button>
+                    )}
+                  </div>
+                  {/* Cover Image Preview */}
+                  {generatingCover && (
+                    <div className="w-full aspect-[3/4] max-w-[200px] rounded-xl border border-border/50 bg-muted/30 flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="w-6 h-6 text-xhs animate-spin" />
+                        <span className="text-[10px] text-muted-foreground">AI 生成封面中...</span>
+                      </div>
+                    </div>
+                  )}
+                  {coverImageUrl && !generatingCover && (
+                    <div className="w-full max-w-[200px] rounded-xl overflow-hidden border border-border/50 shadow-sm">
+                      <img
+                        src={getMediaUrl(coverImageUrl)}
+                        alt="AI 生成的封面图"
+                        className="w-full aspect-[3/4] object-cover"
+                      />
+                      <div className="p-1.5 bg-muted/30 text-center">
+                        <span className="text-[10px] text-muted-foreground">AI 生成封面</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ─── Media Upload for Publishing ──────────────────────────── */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <Film className="w-3 h-3" />
+                    添加图片/视频
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    上传本地图片或视频，发布时将包含在内容中
+                  </p>
+
+                  {/* Hidden file input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      handleMediaUpload(e.target.files);
+                      // Reset input so same file can be re-selected
+                      e.target.value = "";
+                    }}
+                  />
+
+                  {/* Upload button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-dashed border-2 border-border hover:border-xhs/40 hover:bg-xhs-light/10 text-xs w-full h-16"
+                  >
+                    <div className="flex flex-col items-center gap-1">
+                      <Upload className="w-5 h-5 text-muted-foreground" />
+                      <span className="text-muted-foreground">点击选择图片或视频</span>
+                      <span className="text-[10px] text-muted-foreground/60">PNG / JPG / WebP / MP4 / MOV</span>
+                    </div>
+                  </Button>
+
+                  {/* Media Grid */}
+                  {mediaFiles.length > 0 && (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {mediaFiles.map((media) => (
+                        <div
+                          key={media.id}
+                          className="relative group aspect-square rounded-lg overflow-hidden border border-border/50 bg-muted/20"
+                        >
+                          {media.uploading ? (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+                            </div>
+                          ) : media.type === "video" ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-muted/30">
+                              <Film className="w-6 h-6 text-muted-foreground mb-1" />
+                              <span className="text-[9px] text-muted-foreground truncate max-w-full px-1">
+                                {media.originalName}
+                              </span>
+                            </div>
+                          ) : (
+                            <img
+                              src={getMediaUrl(media.url)}
+                              alt={media.originalName}
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+
+                          {/* Remove button overlay */}
+                          <button
+                            onClick={() => removeMediaFile(media.id)}
+                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+
+                          {/* File type badge */}
+                          {media.type === "video" && !media.uploading && (
+                            <div className="absolute bottom-1 left-1 px-1 py-0.5 rounded bg-black/60 text-white text-[8px] flex items-center gap-0.5">
+                              <Film className="w-2.5 h-2.5" />
+                              视频
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions */}

@@ -239,44 +239,44 @@ export function AccountHubView() {
             }
             className="h-full flex flex-col overflow-hidden"
           >
-            {/* Tab triggers — sticky top bar with consistent spacing */}
-            <div className="shrink-0 border-b border-border/60 bg-background/95 backdrop-blur-md px-6 md:px-8">
-              <TabsList className="h-10 bg-transparent gap-1 p-0">
+            {/* Tab triggers — modern pill-style tab bar */}
+            <div className="shrink-0 px-4 md:px-6 py-2.5 bg-muted/30">
+              <TabsList className="h-9 bg-background rounded-lg shadow-sm border border-border/40 gap-0.5 p-0.5">
                 <TabsTrigger
                   value="overview"
                   className={cn(
-                    "h-10 px-4 gap-2 rounded-none border-b-2 border-transparent bg-transparent",
-                    "data-[state=active]:border-rose-500 data-[state=active]:text-rose-500",
-                    "data-[state=active]:shadow-none data-[state=active]:bg-transparent",
-                    "text-muted-foreground hover:text-foreground transition-colors text-sm"
+                    "h-8 px-3.5 gap-1.5 rounded-md text-xs font-medium transition-all duration-200",
+                    "data-[state=active]:bg-gradient-to-r data-[state=active]:from-xhs data-[state=active]:to-rose-500",
+                    "data-[state=active]:text-white data-[state=active]:shadow-sm",
+                    "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}
                 >
-                  <LayoutGrid className="w-4 h-4" />
-                  账号概览
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  概览
                 </TabsTrigger>
                 <TabsTrigger
                   value="notes"
                   className={cn(
-                    "h-10 px-4 gap-2 rounded-none border-b-2 border-transparent bg-transparent",
-                    "data-[state=active]:border-rose-500 data-[state=active]:text-rose-500",
-                    "data-[state=active]:shadow-none data-[state=active]:bg-transparent",
-                    "text-muted-foreground hover:text-foreground transition-colors text-sm"
+                    "h-8 px-3.5 gap-1.5 rounded-md text-xs font-medium transition-all duration-200",
+                    "data-[state=active]:bg-gradient-to-r data-[state=active]:from-xhs data-[state=active]:to-rose-500",
+                    "data-[state=active]:text-white data-[state=active]:shadow-sm",
+                    "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}
                 >
-                  <FileText className="w-4 h-4" />
-                  笔记管理
+                  <FileText className="w-3.5 h-3.5" />
+                  笔记
                 </TabsTrigger>
                 <TabsTrigger
                   value="persona"
                   className={cn(
-                    "h-10 px-4 gap-2 rounded-none border-b-2 border-transparent bg-transparent",
-                    "data-[state=active]:border-rose-500 data-[state=active]:text-rose-500",
-                    "data-[state=active]:shadow-none data-[state=active]:bg-transparent",
-                    "text-muted-foreground hover:text-foreground transition-colors text-sm"
+                    "h-8 px-3.5 gap-1.5 rounded-md text-xs font-medium transition-all duration-200",
+                    "data-[state=active]:bg-gradient-to-r data-[state=active]:from-xhs data-[state=active]:to-rose-500",
+                    "data-[state=active]:text-white data-[state=active]:shadow-sm",
+                    "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}
                 >
-                  <Theater className="w-4 h-4" />
-                  人设管理
+                  <Theater className="w-3.5 h-3.5" />
+                  人设
                 </TabsTrigger>
               </TabsList>
             </div>

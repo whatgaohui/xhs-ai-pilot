@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, withDb } from '@/lib/db';
-import { generateAccountInsights } from '@/lib/ai-service';
-import type { XhsAccountInfo, XhsPostInfo, AccountAnalysis } from '@/types';
+import type { XhsPostInfo, AccountAnalysis } from '@/types';
 
 // GET /api/accounts/[id]/analysis - Get comprehensive analysis for an account
 export async function GET(
@@ -201,23 +200,6 @@ export async function GET(
       .sort((a, b) => b.count - a.count)
       .slice(0, 20);
 
-    // Build the analysis object without AI insights first
-    const accountInfo: XhsAccountInfo = {
-      id: account.id,
-      xhsUrl: account.xhsUrl,
-      xhsId: account.xhsId,
-      nickname: account.nickname,
-      avatarUrl: account.avatarUrl,
-      bio: account.bio,
-      location: account.location,
-      followers: account.followers,
-      following: account.following,
-      likedCollected: account.likedCollected,
-      notesCount: account.notesCount,
-      status: account.status as XhsAccountInfo['status'],
-      lastScrapedAt: account.lastScrapedAt?.toISOString() || null,
-    };
-
     const analysisWithoutInsights: Omit<AccountAnalysis, 'aiInsights'> = {
       totalPosts,
       avgLikes,
@@ -232,21 +214,11 @@ export async function GET(
       contentThemes,
     };
 
-    // Generate AI insights
-    let aiInsights = '';
-    try {
-      aiInsights = await generateAccountInsights(
-        accountInfo,
-        analysisWithoutInsights
-      );
-    } catch (e) {
-      console.error('Failed to generate AI insights:', e);
-      aiInsights = 'AI洞察生成失败，请稍后重试。';
-    }
-
+    // Return analysis data immediately with a placeholder for AI insights
+    // AI insights will be generated separately to avoid blocking the response
     const analysis: AccountAnalysis = {
       ...analysisWithoutInsights,
-      aiInsights,
+      aiInsights: 'AI洞察正在生成中...',
     };
 
     return NextResponse.json({ success: true, data: analysis });
