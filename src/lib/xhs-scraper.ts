@@ -1,5 +1,5 @@
 /**
- * XHS Scraper Micro-Service v3.0
+ * XHS Scraper — Shared Utility (v4.0 in-process)
  *
  * Reliable HTML-based scraping for Xiaohongshu profiles.
  *
@@ -10,28 +10,22 @@
  * directly. Xiaohongshu's SSR embeds the full user data and recent notes
  * in `window.__INITIAL_STATE__` JSON. This works with just Cookie + UA.
  *
- * Endpoints:
- *   GET  /api/health                — health check
- *   POST /api/scrape/profile        — { url, cookies } → account + notes from HTML
- *   POST /api/scrape/note           — { noteId, xsecToken, cookies } → single note detail
- *   POST /api/scrape/profile-with-details — { url, cookies } → account + notes with full details
- *
- * Port: 3002
+ * Migrated from the standalone micro-service (port 3002) so the scraping
+ * logic runs inside the Next.js process and is not killed by the sandbox.
  */
 
 // ─── Constants ────────────────────────────────────────────────────────────
 
-const PORT = 3002;
-const XHS_WEB_BASE = "https://www.xiaohongshu.com";
-const REQUEST_TIMEOUT_MS = 30_000;
-const RATE_LIMIT_DELAY_MS = 1500;
+export const XHS_WEB_BASE = "https://www.xiaohongshu.com";
+export const REQUEST_TIMEOUT_MS = 30_000;
+export const RATE_LIMIT_DELAY_MS = 1500;
 
 const DEFAULT_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
-interface AccountData {
+export interface AccountData {
   nickname: string;
   xhsId: string;
   avatarUrl: string;
@@ -44,7 +38,7 @@ interface AccountData {
   notesCount: number;
 }
 
-interface PostData {
+export interface PostData {
   xhsPostId: string;
   title: string;
   content: string;
@@ -62,7 +56,7 @@ interface PostData {
   commentList: CommentData[];
 }
 
-interface CommentData {
+export interface CommentData {
   xhsCommentId: string;
   content: string;
   userName: string;
@@ -72,7 +66,7 @@ interface CommentData {
   commentDate: string;
 }
 
-interface ProfileResult {
+export interface ProfileResult {
   account: AccountData;
   posts: PostData[];
   totalFound: number;
@@ -81,60 +75,7 @@ interface ProfileResult {
   partialData: boolean;
 }
 
-// ─── URL Helpers ──────────────────────────────────────────────────────────
-
-function extractUserIdFromUrl(url: string): string {
-  const m = url.match(/\/user\/profile\/([a-f0-9]{24})/i);
-  return m ? m[1] : "";
-}
-
-function extractXsecToken(url: string): string {
-  const m = url.match(/[?&]xsec_token=([^&]+)/);
-  return m ? decodeURIComponent(m[1]) : "";
-}
-
-// ─── HTTP Helper ──────────────────────────────────────────────────────────
-
-async function fetchUrl(
-  url: string,
-  options: { headers?: Record<string, string>; timeoutMs?: number } = {}
-): Promise<{ statusCode: number; body: string }> {
-  const timeout = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-  try {
-    const res = await fetch(url, {
-      method: "GET",
-      headers: options.headers || {},
-      signal: controller.signal,
-    });
-    const body = await res.text();
-    return { statusCode: res.status, body };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((res) => setTimeout(res, ms));
-}
-
-// ─── Cookie + Header Builder ──────────────────────────────────────────────
-
-function buildXhsWebHeaders(cookies: string): Record<string, string> {
-  return {
-    "User-Agent": DEFAULT_UA,
-    Cookie: cookies,
-    Referer: "https://www.xiaohongshu.com/",
-    Origin: "https://www.xiaohongshu.com",
-    Accept:
-      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-    "Cache-Control": "no-cache",
-  };
-}
-
-// ─── HTML __INITIAL_STATE__ Extractor ─────────────────────────────────────
+// ─── Internal Types (not exported) ────────────────────────────────────────
 
 interface InitialState {
   user?: {
@@ -167,6 +108,110 @@ interface NoteCardWrapper {
     xsecToken?: string;
   };
 }
+
+interface NoteDetailInitialState {
+  note?: {
+    noteDetailMap?: Record<
+      string,
+      {
+        note?: {
+          title?: string;
+          desc?: string;
+          type?: string;
+          interactInfo?: {
+            likedCount?: string;
+            collectCount?: string;
+            commentCount?: string;
+            shareCount?: string;
+          };
+          tagList?: Array<{ name?: string; type?: string }>;
+          imageList?: Array<{
+            urlDefault?: string;
+            urlPre?: string;
+            url?: string;
+            infoList?: Array<{ width?: number; height?: number }>;
+          }>;
+          video?: {
+            consumer?: {
+              originVideoKey?: string;
+            };
+          };
+          time?: number;
+          lastUpdateTime?: number;
+          xsecToken?: string;
+          noteId?: string;
+        };
+        commentList?: Array<{
+          id?: string;
+          content?: string;
+          userInfo?: {
+            nickname?: string;
+            image?: string;
+          };
+          likedCount?: string | number;
+          subCommentCount?: number;
+          createTime?: number;
+          ipLocation?: string;
+        }>;
+      }
+    >;
+  };
+}
+
+// ─── URL Helpers ──────────────────────────────────────────────────────────
+
+export function extractUserIdFromUrl(url: string): string {
+  const m = url.match(/\/user\/profile\/([a-f0-9]{24})/i);
+  return m ? m[1] : "";
+}
+
+export function extractXsecToken(url: string): string {
+  const m = url.match(/[?&]xsec_token=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+
+// ─── HTTP Helper ──────────────────────────────────────────────────────────
+
+export async function fetchUrl(
+  url: string,
+  options: { headers?: Record<string, string>; timeoutMs?: number } = {}
+): Promise<{ statusCode: number; body: string }> {
+  const timeout = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: options.headers || {},
+      signal: controller.signal,
+    });
+    const body = await res.text();
+    return { statusCode: res.status, body };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function delay(ms: number): Promise<void> {
+  return new Promise((res) => setTimeout(res, ms));
+}
+
+// ─── Cookie + Header Builder ──────────────────────────────────────────────
+
+export function buildXhsWebHeaders(cookies: string): Record<string, string> {
+  return {
+    "User-Agent": DEFAULT_UA,
+    Cookie: cookies,
+    Referer: "https://www.xiaohongshu.com/",
+    Origin: "https://www.xiaohongshu.com",
+    Accept:
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Cache-Control": "no-cache",
+  };
+}
+
+// ─── HTML __INITIAL_STATE__ Extractor ─────────────────────────────────────
 
 function extractInitialState(html: string): InitialState | null {
   // Match `window.__INITIAL_STATE__={...}</script>` or `=...;</script>`
@@ -212,9 +257,38 @@ function pickCoverUrl(cover: NoteCardWrapper["noteCard"]["cover"] | undefined): 
   return cover.urlDefault || cover.urlPre || cover.url || "";
 }
 
+function formatTimestamp(ms: number | undefined): string {
+  if (!ms || typeof ms !== "number") return "";
+  try {
+    const d = new Date(ms);
+    if (isNaN(d.getTime())) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  } catch {
+    return "";
+  }
+}
+
+export function emptyAccount(): AccountData {
+  return {
+    nickname: "",
+    xhsId: "",
+    avatarUrl: "",
+    bio: "",
+    location: "",
+    gender: "",
+    followers: 0,
+    following: 0,
+    likedCollected: 0,
+    notesCount: 0,
+  };
+}
+
 // ─── Main: Scrape Profile via HTML ────────────────────────────────────────
 
-async function scrapeProfileViaHTML(
+export async function scrapeProfileViaHTML(
   url: string,
   cookies: string
 ): Promise<ProfileResult> {
@@ -368,87 +442,9 @@ async function scrapeProfileViaHTML(
   };
 }
 
-function emptyAccount(): AccountData {
-  return {
-    nickname: "",
-    xhsId: "",
-    avatarUrl: "",
-    bio: "",
-    location: "",
-    gender: "",
-    followers: 0,
-    following: 0,
-    likedCollected: 0,
-    notesCount: 0,
-  };
-}
-
 // ─── Scrape Note Detail via HTML ───────────────────────────────────────────
 
-interface NoteDetailInitialState {
-  note?: {
-    noteDetailMap?: Record<
-      string,
-      {
-        note?: {
-          title?: string;
-          desc?: string;
-          type?: string;
-          interactInfo?: {
-            likedCount?: string;
-            collectCount?: string;
-            commentCount?: string;
-            shareCount?: string;
-          };
-          tagList?: Array<{ name?: string; type?: string }>;
-          imageList?: Array<{
-            urlDefault?: string;
-            urlPre?: string;
-            url?: string;
-            infoList?: Array<{ width?: number; height?: number }>;
-          }>;
-          video?: {
-            consumer?: {
-              originVideoKey?: string;
-            };
-          };
-          time?: number;
-          lastUpdateTime?: number;
-          xsecToken?: string;
-          noteId?: string;
-        };
-        commentList?: Array<{
-          id?: string;
-          content?: string;
-          userInfo?: {
-            nickname?: string;
-            image?: string;
-          };
-          likedCount?: string | number;
-          subCommentCount?: number;
-          createTime?: number;
-          ipLocation?: string;
-        }>;
-      }
-    >;
-  };
-}
-
-function formatTimestamp(ms: number | undefined): string {
-  if (!ms || typeof ms !== "number") return "";
-  try {
-    const d = new Date(ms);
-    if (isNaN(d.getTime())) return "";
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  } catch {
-    return "";
-  }
-}
-
-async function scrapeNoteViaHTML(
+export async function scrapeNoteViaHTML(
   noteId: string,
   xsecToken: string,
   cookies: string
@@ -572,186 +568,64 @@ async function scrapeNoteViaHTML(
   return postData;
 }
 
-// ─── HTTP Server (Bun.serve for stability) ────────────────────────────────
+// ─── Profile with Note Details ────────────────────────────────────────────
 
-const startTime = Date.now();
+export async function scrapeProfileWithDetails(
+  url: string,
+  cookies: string
+): Promise<ProfileResult> {
+  // Step 1: Scrape profile to get note cards
+  const profileResult = await scrapeProfileViaHTML(url, cookies);
+  if (profileResult.posts.length === 0) {
+    return profileResult;
+  }
 
-Bun.serve({
-  port: PORT,
-  async fetch(req) {
-    const url = new URL(req.url);
-    const method = req.method;
+  // Step 2: Scrape details for ALL notes (with rate limiting)
+  const notesToScrape = profileResult.posts;
+  const detailWarnings: string[] = [];
 
-    // CORS preflight
-    if (method === "OPTIONS") {
-      return new Response(JSON.stringify({ ok: true }), {
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        },
-      });
-    }
-
-    // Health check
-    if (method === "GET" && url.pathname.startsWith("/api/health")) {
-      return Response.json({
-        success: true,
-        service: "xhs-scraper",
-        version: "3.0.0",
-        strategy: "html_ssr",
-        uptime: (Date.now() - startTime) / 1000,
-      });
-    }
-
-    // Profile scrape
-    if (method === "POST" && url.pathname === "/api/scrape/profile") {
-      try {
-        const body = await req.json() as { url?: string; cookies?: string };
-        if (!body.url || !body.cookies) {
-          return Response.json({ success: false, error: "url 和 cookies 必填" }, { status: 400 });
-        }
-        const result = await scrapeProfileViaHTML(body.url, body.cookies);
+  for (let i = 0; i < notesToScrape.length; i++) {
+    const post = notesToScrape[i];
+    try {
+      if (i > 0) {
         await delay(RATE_LIMIT_DELAY_MS);
-        return Response.json({ success: true, data: result });
-      } catch (err) {
-        return Response.json({
-          success: false,
-          error: err instanceof Error ? err.message : "unknown error",
-        }, { status: 500 });
       }
-    }
 
-    // Note detail scrape
-    if (method === "POST" && url.pathname === "/api/scrape/note") {
-      try {
-        const body = await req.json() as { noteId?: string; xsecToken?: string; cookies?: string };
-        if (!body.noteId || !body.cookies) {
-          return Response.json({ success: false, error: "noteId 和 cookies 必填" }, { status: 400 });
-        }
-        const result = await scrapeNoteViaHTML(body.noteId, body.xsecToken || "", body.cookies);
-        if (!result) {
-          return Response.json({ success: false, error: `无法抓取笔记详情: ${body.noteId}` }, { status: 404 });
-        }
-        return Response.json({ success: true, data: result });
-      } catch (err) {
-        return Response.json({
-          success: false,
-          error: err instanceof Error ? err.message : "unknown error",
-        }, { status: 500 });
+      const detail = await scrapeNoteViaHTML(
+        post.xhsPostId,
+        post.xsecToken,
+        cookies
+      );
+
+      if (detail) {
+        post.content = detail.content || post.content;
+        post.imageUrls = detail.imageUrls.length > 0 ? detail.imageUrls : post.imageUrls;
+        post.likes = detail.likes || post.likes;
+        post.comments = detail.comments || post.comments;
+        post.collects = detail.collects || post.collects;
+        post.shares = detail.shares || post.shares;
+        post.tags = detail.tags.length > 0 ? detail.tags : post.tags;
+        post.publishDate = detail.publishDate || post.publishDate;
+        post.postType = detail.postType || post.postType;
+        post.commentList = detail.commentList.length > 0 ? detail.commentList : post.commentList;
+        if (detail.xsecToken) post.xsecToken = detail.xsecToken;
+        if (!post.coverUrl && detail.coverUrl) post.coverUrl = detail.coverUrl;
+      } else {
+        detailWarnings.push(`笔记 ${post.xhsPostId} 详情抓取失败`);
       }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      detailWarnings.push(`笔记 ${post.xhsPostId} 详情抓取出错: ${msg}`);
     }
+  }
 
-    // Batch note details scrape
-    if (method === "POST" && url.pathname === "/api/scrape/notes-batch") {
-      try {
-        const body = await req.json() as { notes?: Array<{ noteId: string; xsecToken?: string }>; cookies?: string };
-        if (!body.notes || !Array.isArray(body.notes) || !body.cookies) {
-          return Response.json({ success: false, error: "notes 数组和 cookies 必填" }, { status: 400 });
-        }
-        const results: PostData[] = [];
-        const warnings: string[] = [];
-        for (let i = 0; i < body.notes.length; i++) {
-          const { noteId, xsecToken } = body.notes[i];
-          try {
-            if (i > 0) await delay(RATE_LIMIT_DELAY_MS);
-            const detail = await scrapeNoteViaHTML(noteId, xsecToken || "", body.cookies);
-            if (detail) {
-              results.push(detail);
-            } else {
-              warnings.push(`笔记 ${noteId} 详情抓取失败`);
-            }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            warnings.push(`笔记 ${noteId} 详情抓取出错: ${msg}`);
-          }
-        }
-        console.log(`[scrape-notes-batch] OK: ${results.length}/${body.notes.length} details scraped, ${warnings.length} warnings`);
-        return Response.json({ success: true, data: { posts: results, warnings } });
-      } catch (err) {
-        return Response.json({ success: false, error: err instanceof Error ? err.message : "unknown error" }, { status: 500 });
-      }
-    }
+  profileResult.warnings.push(...detailWarnings);
 
-    // Profile scrape with note details
-    if (method === "POST" && url.pathname === "/api/scrape/profile-with-details") {
-      try {
-        const body = await req.json() as { url?: string; cookies?: string };
-        if (!body.url || !body.cookies) {
-          return Response.json({ success: false, error: "url 和 cookies 必填" }, { status: 400 });
-        }
+  console.log(
+    `[scrape-profile-with-details] OK: ${profileResult.account.nickname || "(no name)"}, ` +
+    `${profileResult.posts.length} posts, ${notesToScrape.length} with details, ` +
+    `${detailWarnings.length} warnings`
+  );
 
-        // Step 1: Scrape profile to get note cards
-        const profileResult = await scrapeProfileViaHTML(body.url, body.cookies);
-        if (profileResult.posts.length === 0) {
-          return Response.json({ success: true, data: profileResult });
-        }
-
-        // Step 2: Scrape details for ALL notes (with rate limiting)
-        const notesToScrape = profileResult.posts;
-        const detailWarnings: string[] = [];
-
-        for (let i = 0; i < notesToScrape.length; i++) {
-          const post = notesToScrape[i];
-          try {
-            if (i > 0) {
-              await delay(RATE_LIMIT_DELAY_MS);
-            }
-
-            const detail = await scrapeNoteViaHTML(
-              post.xhsPostId,
-              post.xsecToken,
-              body.cookies
-            );
-
-            if (detail) {
-              post.content = detail.content || post.content;
-              post.imageUrls = detail.imageUrls.length > 0 ? detail.imageUrls : post.imageUrls;
-              post.likes = detail.likes || post.likes;
-              post.comments = detail.comments || post.comments;
-              post.collects = detail.collects || post.collects;
-              post.shares = detail.shares || post.shares;
-              post.tags = detail.tags.length > 0 ? detail.tags : post.tags;
-              post.publishDate = detail.publishDate || post.publishDate;
-              post.postType = detail.postType || post.postType;
-              post.commentList = detail.commentList.length > 0 ? detail.commentList : post.commentList;
-              if (detail.xsecToken) post.xsecToken = detail.xsecToken;
-              if (!post.coverUrl && detail.coverUrl) post.coverUrl = detail.coverUrl;
-            } else {
-              detailWarnings.push(`笔记 ${post.xhsPostId} 详情抓取失败`);
-            }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            detailWarnings.push(`笔记 ${post.xhsPostId} 详情抓取出错: ${msg}`);
-          }
-        }
-
-        profileResult.warnings.push(...detailWarnings);
-
-        console.log(
-          `[scrape-profile-with-details] OK: ${profileResult.account.nickname || "(no name)"}, ` +
-          `${profileResult.posts.length} posts, ${notesToScrape.length} with details, ` +
-          `${detailWarnings.length} warnings`
-        );
-
-        return Response.json({ success: true, data: profileResult });
-      } catch (err) {
-        return Response.json({
-          success: false,
-          error: err instanceof Error ? err.message : "unknown error",
-        }, { status: 500 });
-      }
-    }
-
-    // Not found
-    return Response.json({ success: false, error: `Route not found: ${url.pathname}` }, { status: 404 });
-  },
-});
-
-console.log(`✅ XHS Scraper Service v3.0 running on port ${PORT}`);
-console.log(`   Strategy: HTML SSR (no signature required)`);
-console.log(`   Health:   http://localhost:${PORT}/api/health`);
-console.log(`   Profile:  POST http://localhost:${PORT}/api/scrape/profile`);
-console.log(`   Note:     POST http://localhost:${PORT}/api/scrape/note`);
-console.log(`   Detail:   POST http://localhost:${PORT}/api/scrape/profile-with-details`);
+  return profileResult;
+}

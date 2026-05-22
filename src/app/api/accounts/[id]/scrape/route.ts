@@ -1,66 +1,17 @@
 /**
- * Account Scrape API (v3.0)
+ * Account Scrape API (v4.0 — in-process)
  *
- * Single reliable strategy: delegate to the xhs-scraper micro-service
- * which uses HTML SSR extraction (no signature required, just Cookie + UA).
+ * Scraping logic now runs directly inside the Next.js process
+ * via @/lib/xhs-scraper, eliminating the dependency on the
+ * external micro-service that was killed by the sandbox.
  *
  * Body: { cookies: string }   ← required for new flow
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { db, withDb } from "@/lib/db";
-
-const SCRAPER_SERVICE_URL = "http://localhost:3002";
-
-interface ScrapeAccountData {
-  nickname?: string;
-  xhsId?: string;
-  avatarUrl?: string;
-  bio?: string;
-  location?: string;
-  gender?: string;
-  followers?: number;
-  following?: number;
-  likedCollected?: number;
-  notesCount?: number;
-}
-
-interface ScrapePostData {
-  xhsPostId?: string;
-  title?: string;
-  content?: string;
-  coverUrl?: string;
-  imageUrls?: string[];
-  videoUrl?: string;
-  postType?: string;
-  likes?: number;
-  comments?: number;
-  collects?: number;
-  shares?: number;
-  tags?: string[];
-  publishDate?: string;
-  xsecToken?: string;
-  commentList?: ScrapeCommentData[];
-}
-
-interface ScrapeCommentData {
-  xhsCommentId: string;
-  content: string;
-  userName: string;
-  userAvatar: string;
-  likes: number;
-  subCommentCount: number;
-  commentDate: string;
-}
-
-interface ScrapeResultData {
-  account: ScrapeAccountData;
-  posts: ScrapePostData[];
-  totalFound: number;
-  scrapeMethod: string;
-  warnings: string[];
-  partialData: boolean;
-}
+import { scrapeProfileWithDetails } from "@/lib/xhs-scraper";
+import type { ProfileResult } from "@/lib/xhs-scraper";
 
 function mergeField<T extends string | number>(
   fresh: T | undefined,
@@ -71,29 +22,6 @@ function mergeField<T extends string | number>(
   if (typeof fresh === "string" && fresh.trim() === "") return fallback ?? emptyVal;
   if (typeof fresh === "number" && fresh === 0 && fallback) return fallback;
   return fresh;
-}
-
-async function callScraperService(
-  url: string,
-  cookies: string
-): Promise<ScrapeResultData | null> {
-  try {
-    const res = await fetch(`${SCRAPER_SERVICE_URL}/api/scrape/profile-with-details`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, cookies }),
-      signal: AbortSignal.timeout(120_000),
-    });
-    if (!res.ok) {
-      console.error(`[scrape] service returned ${res.status}`);
-      return null;
-    }
-    const json = await res.json();
-    return json.success ? (json.data as ScrapeResultData) : null;
-  } catch (err) {
-    console.error("[scrape] service unreachable:", err);
-    return null;
-  }
 }
 
 export async function POST(
@@ -134,7 +62,13 @@ export async function POST(
       data: { status: "scraping", errorMessage: "" },
     }));
 
-    const result = await callScraperService(account.xhsUrl, cookies);
+    // Call scraper directly — runs in-process, no external service needed
+    let result: ProfileResult | null = null;
+    try {
+      result = await scrapeProfileWithDetails(account.xhsUrl, cookies);
+    } catch (err) {
+      console.error("[scrape] in-process scraper error:", err);
+    }
 
     if (!result) {
       await withDb(() => db.xhsAccount.update({
@@ -142,11 +76,11 @@ export async function POST(
         data: {
           status: "error",
           errorMessage:
-            "采集服务无响应，请确认 xhs-scraper 微服务已启动（port 3002）",
+            "采集服务出错，请检查 Cookie 是否有效或稍后重试",
         },
       }));
       return NextResponse.json(
-        { success: false, error: "采集服务未启动" },
+        { success: false, error: "采集服务出错" },
         { status: 503 }
       );
     }
