@@ -21,6 +21,7 @@ import type { AccountDataState } from "@/hooks/use-account-data";
 import { PostCard } from "@/components/post-card";
 import { formatNumber } from "@/components/account-card";
 import { cn } from "@/lib/utils";
+import { proxyXhsImage } from "@/lib/media-url";
 import { toast } from "sonner";
 import { ExportDialog } from "@/components/export-dialog";
 import {
@@ -627,7 +628,7 @@ function ScheduleTimeline({
                             {account && (
                               <div className="flex items-center gap-1.5">
                                 <Avatar size="sm">
-                                  <AvatarImage src={account.avatarUrl} alt={account.nickname} />
+                                  <AvatarImage src={proxyXhsImage(account.avatarUrl)} alt={account.nickname} />
                                   <AvatarFallback className="bg-xhs-light text-xhs text-[8px]">
                                     {(account.nickname || "用").slice(0, 1)}
                                   </AvatarFallback>
@@ -1810,7 +1811,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                         {/* Thumbnail */}
                         <div className="w-10 h-10 rounded-md bg-muted overflow-hidden shrink-0">
                           {post.coverUrl ? (
-                            <img src={post.coverUrl} alt={post.title} className="w-full h-full object-cover" />
+                            <img src={proxyXhsImage(post.coverUrl)} alt={post.title} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-xhs/20 to-xhs/5">
                               <FileText className="w-4 h-4 text-xhs" />
@@ -2098,7 +2099,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                       <div className="w-28 sm:w-36 shrink-0 aspect-[4/3] bg-muted relative overflow-hidden">
                         {post.coverUrl ? (
                           <img
-                            src={post.coverUrl}
+                            src={proxyXhsImage(post.coverUrl)}
                             alt={post.title}
                             className="w-full h-full object-cover"
                           />
@@ -2373,7 +2374,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                       {selectedPost.imageUrls.map((url, i) => (
                         <div key={i} className="aspect-square rounded-xl overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(url, '_blank')}>
                           <img
-                            src={url}
+                            src={proxyXhsImage(url)}
                             alt={`图片 ${i + 1}`}
                             className="w-full h-full object-cover"
                             loading="lazy"
@@ -2393,7 +2394,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                     </p>
                     <div className="rounded-xl overflow-hidden bg-black">
                       <video
-                        src={selectedPost.videoUrl}
+                        src={proxyXhsImage(selectedPost.videoUrl)}
                         controls
                         className="w-full max-h-[400px]"
                         preload="metadata"

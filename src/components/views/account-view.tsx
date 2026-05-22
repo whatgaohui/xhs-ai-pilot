@@ -47,6 +47,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { proxyXhsImage } from "@/lib/media-url";
 import {
   Users,
   Heart,
@@ -686,7 +687,7 @@ export function AccountView({ sharedAccountData, onNavigateToNotes, onOpenCreato
                     <div className="flex items-start gap-4">
                       <div className="relative">
                         <Avatar className="w-16 h-16 shrink-0 ring-2 ring-xhs/10">
-                          <AvatarImage src={account.avatarUrl} alt={account.nickname} />
+                          <AvatarImage src={proxyXhsImage(account.avatarUrl)} alt={account.nickname} />
                           <AvatarFallback className="bg-xhs-light text-xhs text-xl font-medium">
                             {(account.nickname || "用户").slice(0, 1)}
                           </AvatarFallback>

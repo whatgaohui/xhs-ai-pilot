@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { cn } from "@/lib/utils";
+import { proxyXhsImage } from "@/lib/media-url";
 import { toast } from "sonner";
 import {
   Cookie,
@@ -667,7 +668,7 @@ export function CookieInputDialog({
       <div className="bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-5">
         <div className="flex items-center gap-4">
           <Avatar className="w-14 h-14 shrink-0 ring-2 ring-emerald-200 dark:ring-emerald-800">
-            <AvatarImage src={resultData?.avatarUrl} alt={resultData?.nickname} />
+            <AvatarImage src={proxyXhsImage(resultData?.avatarUrl || "")} alt={resultData?.nickname} />
             <AvatarFallback className="bg-xhs-light text-xhs text-xl font-medium">
               {(resultData?.nickname || "用").slice(0, 1)}
             </AvatarFallback>

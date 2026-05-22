@@ -14,6 +14,7 @@ import { useNotificationStore } from "@/store/notification-store";
 import { toast } from "sonner";
 import type { XhsAccountInfo, XhsPostInfo } from "@/types";
 import { cn } from "@/lib/utils";
+import { proxyXhsImage } from "@/lib/media-url";
 import {
   Users,
   FileText,
@@ -1231,7 +1232,7 @@ export function DashboardView() {
                 <div className="aspect-[16/9] bg-muted relative group">
                   {post.coverUrl ? (
                     <img
-                      src={post.coverUrl}
+                      src={proxyXhsImage(post.coverUrl)}
                       alt={post.title}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />

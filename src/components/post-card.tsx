@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { proxyXhsImage } from "@/lib/media-url";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -189,7 +190,7 @@ export function PostCard({
         {post.coverUrl ? (
           <>
             <img
-              src={post.coverUrl}
+              src={proxyXhsImage(post.coverUrl)}
               alt={post.title}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />

@@ -212,3 +212,41 @@ Stage Summary:
 - Added videoUrl support throughout the stack (schema → API → UI)
 - Data insights completely rewritten with only real scraped data
 - 3 analytics tabs: 互动概览, 内容分布, 发布规律 (all from real data)
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Fix scraped notes not displaying images in note management
+
+Work Log:
+- Investigated root cause: XHS CDN has Referer hotlink protection that blocks direct browser image requests
+- XHS CDN URLs (sns-webpic-qc.xhscdn.com, ci.xiaohongshu.com, etc.) reject requests with non-XHS Referer
+- Created server-side image proxy API route at /api/proxy-image
+  - Fetches images server-side with spoofed Referer header (https://www.xiaohongshu.com/)
+  - Only proxies XHS CDN URLs (security measure), redirects non-XHS URLs
+  - Caches responses for 1 hour (revalidate: 3600)
+  - Returns proper Content-Type and Cache-Control headers
+- Added proxyXhsImage() utility function to src/lib/media-url.ts
+  - Detects XHS CDN domains (xhscdn.com, xiaohongshu.com, xhscdn.cn)
+  - Routes XHS URLs through /api/proxy-image proxy
+  - Returns non-XHS URLs as-is (no proxy needed)
+- Updated all components rendering XHS images to use proxyXhsImage():
+  - content-view.tsx: coverUrl in calendar/list view, imageUrls in detail dialog, videoUrl
+  - post-card.tsx: coverUrl in grid card
+  - dashboard-view.tsx: coverUrl in trending posts
+  - account-card.tsx: avatarUrl
+  - account-comparison.tsx: avatarUrl (2 instances)
+  - cookie-input-dialog.tsx: avatarUrl in success card
+  - account-view.tsx: avatarUrl
+  - account-hub-header.tsx: avatarUrl (2 instances - main + dropdown)
+  - account-hub-view.tsx: avatarUrl in context bar
+- Verified proxy working: all /api/proxy-image requests returning 200 in dev logs
+- Verified lint passes
+- Avatar images now also display correctly (sns-avatar-qc.xhscdn.com)
+
+Stage Summary:
+- Root cause: XHS CDN Referer hotlink protection blocks direct browser image requests
+- Solution: Server-side image proxy at /api/proxy-image that fetches with proper Referer
+- All XHS images (covers, detail images, videos, avatars) now route through the proxy
+- 10 component files updated to use proxyXhsImage()
+- Proxy confirmed working in dev server logs (200 responses, ~300ms per image)

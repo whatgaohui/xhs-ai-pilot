@@ -36,3 +36,40 @@ export function getMediaPath(url: string): string {
   if (!url) return '';
   return url.replace(/^\/api/, '');
 }
+
+// ─── XHS Image Proxy ──────────────────────────────────────────────────────
+
+const XHS_CDN_DOMAINS = [
+  "xhscdn.com",
+  "xiaohongshu.com",
+  "xhscdn.cn",
+];
+
+function isXhsCdnUrl(url: string): boolean {
+  if (!url) return false;
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return XHS_CDN_DOMAINS.some(
+      (domain) => hostname === domain || hostname.endsWith("." + domain)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Proxy XHS CDN image URLs through our server to bypass Referer hotlink protection.
+ *
+ * XHS CDN rejects direct browser requests due to Referer checking.
+ * This routes external XHS URLs through /api/proxy-image which fetches
+ * server-side with the correct Referer header.
+ *
+ * Non-XHS URLs are returned as-is.
+ */
+export function proxyXhsImage(url: string): string {
+  if (!url) return "";
+  if (isXhsCdnUrl(url)) {
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}

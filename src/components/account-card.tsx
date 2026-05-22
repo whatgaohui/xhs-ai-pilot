@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { proxyXhsImage } from "@/lib/media-url";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -147,7 +148,7 @@ export function AccountCard({ account, onClick, selected, compact, className, on
         <div className="flex items-start gap-3">
           <div className="relative">
             <Avatar className={cn(compact ? "w-9 h-9" : "w-11 h-11", "shrink-0")}>
-              <AvatarImage src={account.avatarUrl} alt={account.nickname} />
+              <AvatarImage src={proxyXhsImage(account.avatarUrl)} alt={account.nickname} />
               <AvatarFallback className="bg-xhs-light text-xhs text-sm font-medium">
                 {(account.nickname || "用户").slice(0, 1)}
               </AvatarFallback>

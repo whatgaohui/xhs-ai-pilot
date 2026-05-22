@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { proxyXhsImage } from "@/lib/media-url";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -335,7 +336,7 @@ function AccountSelection({
                     onClick={(e) => e.stopPropagation()}
                   />
                   <Avatar className="w-9 h-9 shrink-0">
-                    <AvatarImage src={account.avatarUrl} alt={account.nickname} />
+                    <AvatarImage src={proxyXhsImage(account.avatarUrl)} alt={account.nickname} />
                     <AvatarFallback className="bg-xhs-light text-xhs text-xs font-medium">
                       {(account.nickname || "用户").slice(0, 1)}
                     </AvatarFallback>
@@ -433,7 +434,7 @@ function ComparisonResults({
               )}
               <CardContent className="p-3 text-center">
                 <Avatar className="w-10 h-10 mx-auto mb-1.5">
-                  <AvatarImage src={account.avatarUrl} alt={account.nickname} />
+                  <AvatarImage src={proxyXhsImage(account.avatarUrl)} alt={account.nickname} />
                   <AvatarFallback className="bg-xhs-light text-xhs text-sm font-medium">
                     {(account.nickname || "用户").slice(0, 1)}
                   </AvatarFallback>

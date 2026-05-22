@@ -48,6 +48,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { proxyXhsImage } from "@/lib/media-url";
 import type { AccountStats, AccountDataState } from "@/hooks/use-account-data";
 import {
   Users,
@@ -238,7 +239,7 @@ export function AccountHubHeader({
               <div className="relative shrink-0">
                 <Avatar className="w-12 h-12 md:w-14 md:h-14 ring-2 ring-xhs/10">
                   <AvatarImage
-                    src={selectedAccount.avatarUrl}
+                    src={proxyXhsImage(selectedAccount.avatarUrl)}
                     alt={selectedAccount.nickname}
                   />
                   <AvatarFallback className="bg-gradient-to-br from-xhs-light to-xhs-light/50 text-xhs text-lg font-medium">
@@ -319,7 +320,7 @@ export function AccountHubHeader({
                             <div className="flex items-center gap-2">
                               <Avatar className="w-5 h-5">
                                 <AvatarImage
-                                  src={acc.avatarUrl}
+                                  src={proxyXhsImage(acc.avatarUrl)}
                                   alt={acc.nickname}
                                 />
                                 <AvatarFallback className="bg-xhs-light text-xhs text-[8px]">

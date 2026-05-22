@@ -40,6 +40,7 @@ import { EditAccountDialog } from "@/components/edit-account-dialog";
 import { CookieInputDialog } from "@/components/cookie-input-dialog";
 import { ManualDataDialog } from "@/components/manual-data-dialog";
 import { cn } from "@/lib/utils";
+import { proxyXhsImage } from "@/lib/media-url";
 import { toast } from "sonner";
 import {
   LayoutGrid,
@@ -342,7 +343,7 @@ export function AccountHubView() {
               <div className="px-6 py-2.5 bg-muted/30 border-b border-border/40 flex items-center gap-2.5">
                 <Avatar className="w-6 h-6">
                   <AvatarImage
-                    src={selectedAccount.avatarUrl}
+                    src={proxyXhsImage(selectedAccount.avatarUrl)}
                     alt={selectedAccount.nickname}
                   />
                   <AvatarFallback className="bg-xhs-light text-xhs text-[8px]">
