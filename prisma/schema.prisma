@@ -58,7 +58,7 @@ model XhsPost {
   
   // 互动数据
   likes         Int      @default(0)
-  comments      Int      @default(0)
+  comments      Int      @default(0)  // 评论数
   collects      Int      @default(0)  // 收藏数
   shares        Int      @default(0)  // 分享数
   
@@ -74,8 +74,32 @@ model XhsPost {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
+  xhsComments   XhsComment[]
+
   @@index([accountId])
   @@index([publishDate])
+}
+
+// ─── 笔记评论 ──────────────────────────────────────────────────────────
+
+model XhsComment {
+  id            String   @id @default(cuid())
+  postId        String
+  post          XhsPost  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  xhsCommentId  String   @default("")  // 小红书评论ID
+  content       String   @default("")  // 评论内容
+  userName      String   @default("")  // 评论者昵称
+  userAvatar    String   @default("")  // 评论者头像
+  likes         Int      @default(0)   // 点赞数
+  subCommentCount Int    @default(0)   // 子评论数
+  commentDate   String   @default("")  // 评论日期
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([postId])
+  @@index([xhsCommentId])
 }
 
 // ─── 人设管理 ─────────────────────────────────────────────────────────────

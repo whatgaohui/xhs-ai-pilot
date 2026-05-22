@@ -387,3 +387,63 @@ Stage Summary:
 - AI image generation added to note creator
 - Data insights verified to use real scraped data
 - Account overview now loads in 0.12s instead of 25.8s — this was the critical fix
+
+---
+Task ID: 9
+Agent: Main Agent
+Task: Fix note publish time/status and add comment scraping + display
+
+Work Log:
+- Issue 1: Fixed note publish time and status in schedule view
+  - ROOT CAUSE: `generateSampleSchedule()` was creating FAKE schedule data from scraped posts
+    - It assigned today/tomorrow/this week dates based on current date offsets
+    - It assigned fake statuses ("pending", "published", "draft") in rotation
+    - It assigned fake time slots ("08:00", "12:00", "18:30", etc.)
+    - All scraped notes should show as "published" with their REAL publish date from XHS
+  - Fix: Rewrote `generateSampleSchedule()` to use actual `publishDate` from scraped posts
+    - All scraped notes now show with real publish date (e.g., "2024-08-25")
+    - All scraped notes marked as "published" (they are already on XHS)
+    - No fake time slots or notes
+  - Updated `getDateGroupLabel()` to handle past dates (昨天, 上周, 更早)
+  - Updated `getDateGroupOrder()` with proper ordering for past date groups
+  - Updated `ScheduleTimeline` group order to include past date groups
+  - Updated schedule timeline sort to handle empty scheduledTime gracefully
+  - Updated time display: shows date when no scheduledTime (for published scraped notes)
+  - Fixed `formatDate()` in post-card.tsx: shows year for dates in different years
+- Issue 2: Added comment scraping and display
+  - Added `XhsComment` model to Prisma schema with fields: xhsCommentId, content, userName, userAvatar, likes, subCommentCount, commentDate
+  - Updated XHS scraper to extract comments from note detail pages:
+    - Added `CommentData` interface
+    - Added `commentList` field to `PostData` interface
+    - Updated `NoteDetailInitialState` to include `commentList` array
+    - Parse comments from `noteDetailMap[noteId].commentList` in __INITIAL_STATE__
+    - Extract: id, content, userInfo (nickname, image), likedCount, subCommentCount, createTime
+    - Added `commentList: []` default to profile scrape post data
+    - Merge commentList in profile-with-details endpoint
+  - Created API endpoint: GET /api/posts/[id]/comments
+  - Updated scrape API route to save comments when scraping:
+    - Added `ScrapeCommentData` interface
+    - Added `commentList` to `ScrapePostData` interface
+    - After upserting each post, iterate through commentList and upsert comments
+    - Comments matched by postId + xhsCommentId for deduplication
+    - Response includes `commentsSynced` count
+  - Added comments section to note detail dialog in content-view.tsx:
+    - New state: postComments, commentsLoading
+    - New function: loadPostComments(postId) - fetches from /api/posts/[id]/comments
+    - New function: openPostDetail(post) - sets selectedPost and loads comments
+    - Updated all setSelectedPost(post) calls to use openPostDetail(post)
+    - Comments section shows: avatar, username, date, content, likes, reply count
+    - Loading spinner while fetching comments
+    - Empty state with contextual message
+    - Max height with scroll for long comment lists
+  - Ran bun run db:push to apply schema changes
+  - Ran bun run lint — passed
+  - Restarted xhs-scraper microservice
+
+Stage Summary:
+- Schedule view now shows real publish dates and correct "已发布" status for scraped notes
+- Past dates properly grouped (昨天, 上周, 更早) instead of showing as future dates
+- Comments are scraped from XHS note detail pages and stored in database
+- Comments displayed in note detail dialog with avatars, usernames, content, likes, reply counts
+- New Prisma model XhsComment, new API endpoint GET /api/posts/[id]/comments
+- Scraper microservice updated to extract and return comment data

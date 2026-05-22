@@ -106,6 +106,10 @@ function getDateGroupLabel(dateStr: string): string {
   if (diffDays === 1) return "明天";
   if (diffDays > 1 && diffDays <= 6) return "本周";
   if (diffDays > 6 && diffDays <= 13) return "下周";
+  // Past dates
+  if (diffDays === -1) return "昨天";
+  if (diffDays < -1 && diffDays >= -6) return "上周";
+  if (diffDays < -6) return "更早";
   return "更晚";
 }
 
@@ -120,7 +124,11 @@ function getDateGroupOrder(dateStr: string): number {
   if (diffDays === 1) return 1;
   if (diffDays > 1 && diffDays <= 6) return 2;
   if (diffDays > 6 && diffDays <= 13) return 3;
-  return 4;
+  if (diffDays > 13) return 4;
+  // Past dates come after future, before "更晚"
+  if (diffDays === -1) return 5;
+  if (diffDays < -1 && diffDays >= -6) return 6;
+  return 7; // 更早
 }
 
 function formatDateDisplay(dateStr: string): string {
@@ -499,7 +507,7 @@ function ScheduleTimeline({
   // Group by date group
   const groupedPosts = useMemo(() => {
     const groups: Record<string, ScheduledPost[]> = {};
-    const groupOrder: string[] = ["今天", "明天", "本周", "下周", "更晚"];
+    const groupOrder: string[] = ["今天", "明天", "本周", "下周", "更晚", "昨天", "上周", "更早"];
 
     for (const post of scheduledPosts) {
       const label = getDateGroupLabel(post.scheduledDate);
@@ -507,9 +515,14 @@ function ScheduleTimeline({
       groups[label].push(post);
     }
 
-    // Sort posts within each group by scheduledTime
+    // Sort posts within each group by scheduledTime (if available), then by title
     for (const key of Object.keys(groups)) {
-      groups[key].sort((a, b) => a.scheduledTime.localeCompare(b.scheduledTime));
+      groups[key].sort((a, b) => {
+        if (a.scheduledTime && b.scheduledTime) return a.scheduledTime.localeCompare(b.scheduledTime);
+        if (a.scheduledTime) return -1;
+        if (b.scheduledTime) return 1;
+        return a.title.localeCompare(b.title);
+      });
     }
 
     // Return in order
@@ -611,10 +624,17 @@ function ScheduleTimeline({
                         <div className="flex-1 min-w-0">
                           {/* Time + Status */}
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">
-                              <Clock className="w-3 h-3" />
-                              {post.scheduledTime}
-                            </span>
+                            {post.scheduledTime ? (
+                              <span className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+                                <Clock className="w-3 h-3" />
+                                {post.scheduledTime}
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground/70">
+                                <Clock className="w-3 h-3" />
+                                {post.scheduledDate}
+                              </span>
+                            )}
                             <ScheduleStatusBadge status={post.status} />
                           </div>
 
@@ -894,6 +914,18 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
   const [filterAccountId, setFilterAccountId] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPost, setSelectedPost] = useState<XhsPostInfo | null>(null);
+  const [postComments, setPostComments] = useState<Array<{
+    id: string;
+    xhsCommentId: string;
+    content: string;
+    userName: string;
+    userAvatar: string;
+    likes: number;
+    subCommentCount: number;
+    commentDate: string;
+    createdAt: string;
+  }>>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
   const [selectedDraft, setSelectedDraft] = useState<(ContentDraftInfo & { accountNickname?: string; accountAvatar?: string }) | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -919,36 +951,28 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [editingScheduledPost, setEditingScheduledPost] = useState<ScheduledPost | null>(null);
 
-  // Generate sample schedule data from posts
+  // Generate schedule data from real scraped posts and drafts
   const generateSampleSchedule = useCallback(
     (loadedPosts: XhsPostInfo[], loadedAccounts: (XhsAccountInfo & { postsCount?: number })[]) => {
       if (loadedPosts.length === 0) return [];
-      const now = new Date();
       const samples: ScheduledPost[] = [];
-      const timeSlots = ["08:00", "12:00", "18:30", "19:00", "20:00", "20:30", "21:00"];
 
-      // Create sample entries from existing posts
-      const usedPosts = loadedPosts.slice(0, 6);
-      usedPosts.forEach((post, i) => {
-        const dayOffset = Math.floor(i / 2);
-        const date = new Date(now);
-        date.setDate(date.getDate() + dayOffset);
-        const dateStr = date.toISOString().slice(0, 10);
+      // Create schedule entries from scraped posts using their ACTUAL publish dates
+      loadedPosts.forEach((post, i) => {
+        // Use the real publishDate from XHS; fallback to scrapedAt if missing
+        const publishDate = post.publishDate || (post.scrapedAt ? post.scrapedAt.slice(0, 10) : "");
+        if (!publishDate) return;
 
-        const statuses: ScheduleStatus[] = ["pending", "published", "draft"];
-        const statusIndex = i % 3;
-        // Past dates should be more likely published
-        const status: ScheduleStatus = dayOffset === 0 && i < 2 ? statuses[statusIndex] : "pending";
-
+        // All scraped posts are already published on XHS
         samples.push({
-          id: `schedule-${Date.now()}-${i}`,
+          id: `schedule-published-${post.id}`,
           postId: post.id,
           title: post.title || "无标题笔记",
-          scheduledDate: dateStr,
-          scheduledTime: timeSlots[i % timeSlots.length],
+          scheduledDate: publishDate,
+          scheduledTime: "", // Scraped posts don't have scheduled time
           accountId: post.accountId || (loadedAccounts[0]?.id ?? ""),
-          status,
-          notes: i % 3 === 0 ? "黄金时段发布" : i % 3 === 1 ? "周末特辑" : "",
+          status: "published",
+          notes: "",
         });
       });
 
@@ -1147,7 +1171,31 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
   const handleDeletePost = async (postId: string) => {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
     setSelectedPost(null);
+    setPostComments([]);
   };
+
+  const loadPostComments = useCallback(async (postId: string) => {
+    setCommentsLoading(true);
+    try {
+      const res = await fetch(`/api/posts/${postId}/comments`);
+      const data = await res.json();
+      if (data.success) {
+        setPostComments(data.data || []);
+      } else {
+        setPostComments([]);
+      }
+    } catch {
+      setPostComments([]);
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, []);
+
+  const openPostDetail = useCallback((post: XhsPostInfo) => {
+    setSelectedPost(post);
+    setPostComments([]);
+    loadPostComments(post.id);
+  }, [loadPostComments]);
 
   const handleDeleteDraft = async (draftId: string) => {
     try {
@@ -1206,7 +1254,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
   const handleCardClick = useCallback(
     (post: XhsPostInfo, e: React.MouseEvent) => {
       if (!selectionMode) {
-        setSelectedPost(post);
+        openPostDetail(post);
         return;
       }
 
@@ -1806,7 +1854,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                       <button
                         key={post.id}
                         className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors text-left"
-                        onClick={() => setSelectedPost(post)}
+                        onClick={() => openPostDetail(post)}
                       >
                         {/* Thumbnail */}
                         <div className="w-10 h-10 rounded-md bg-muted overflow-hidden shrink-0">
@@ -1899,9 +1947,9 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                       <PostCard
                         post={item.data}
                         showActions={!selectionMode}
-                        onQuickView={() => setSelectedPost(item.data)}
+                        onQuickView={() => openPostDetail(item.data)}
                         onEditAction={() => {
-                          setSelectedPost(item.data);
+                          openPostDetail(item.data);
                           setActiveTab("creator");
                         }}
                         onBookmarkToggle={() => toggleBookmark(item.data.id)}
@@ -2271,7 +2319,7 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
       {/* Post Detail Modal */}
       <Dialog
         open={!!selectedPost}
-        onOpenChange={(open) => !open && setSelectedPost(null)}
+        onOpenChange={(open) => { if (!open) { setSelectedPost(null); setPostComments([]); } }}
       >
         <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
           {selectedPost && (
@@ -2416,6 +2464,69 @@ export function ContentView({ sharedAccountData, onOpenCreator }: ContentViewPro
                       <FileText className="w-3 h-3" />
                       {selectedPost.category}
                     </span>
+                  )}
+                </div>
+
+                {/* Comments Section */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+                    <MessageCircle className="w-3 h-3" />
+                    评论（{selectedPost.comments}）
+                  </p>
+                  {commentsLoading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <div className="w-5 h-5 border-2 border-muted-foreground/30 border-t-xhs rounded-full animate-spin" />
+                      <span className="ml-2 text-xs text-muted-foreground">加载评论中...</span>
+                    </div>
+                  ) : postComments.length > 0 ? (
+                    <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                      {postComments.map((comment) => (
+                        <div key={comment.id} className="flex gap-2.5 group">
+                          <div className="w-7 h-7 rounded-full bg-muted overflow-hidden shrink-0 mt-0.5">
+                            {comment.userAvatar ? (
+                              <img
+                                src={proxyXhsImage(comment.userAvatar)}
+                                alt={comment.userName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-[10px] font-medium text-muted-foreground bg-xhs-light/40">
+                                {(comment.userName || "用").slice(0, 1)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-foreground/90">{comment.userName || "匿名用户"}</span>
+                              {comment.commentDate && (
+                                <span className="text-[10px] text-muted-foreground/60">{comment.commentDate}</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-foreground/80 leading-relaxed mt-0.5 whitespace-pre-wrap break-words">
+                              {comment.content}
+                            </p>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground/60">
+                                <Heart className="w-2.5 h-2.5" />
+                                {comment.likes > 0 ? comment.likes : ""}
+                              </span>
+                              {comment.subCommentCount > 0 && (
+                                <span className="text-[10px] text-muted-foreground/60">
+                                  {comment.subCommentCount}条回复
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <MessageCircle className="w-6 h-6 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground/60">
+                        {selectedPost.comments > 0 ? "评论数据采集中，请重新采集获取" : "暂无评论"}
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>

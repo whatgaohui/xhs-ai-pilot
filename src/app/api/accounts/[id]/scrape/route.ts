@@ -40,6 +40,17 @@ interface ScrapePostData {
   tags?: string[];
   publishDate?: string;
   xsecToken?: string;
+  commentList?: ScrapeCommentData[];
+}
+
+interface ScrapeCommentData {
+  xhsCommentId: string;
+  content: string;
+  userName: string;
+  userAvatar: string;
+  likes: number;
+  subCommentCount: number;
+  commentDate: string;
 }
 
 interface ScrapeResultData {
@@ -173,8 +184,9 @@ export async function POST(
       },
     }));
 
-    // Upsert posts
+    // Upsert posts and their comments
     const postsCreated: string[] = [];
+    const commentsCreated: number[] = [0]; // Use array for mutability in closure
     for (const p of result.posts) {
       if (!p.xhsPostId && !p.title) continue;
       const existing = p.xhsPostId
@@ -198,12 +210,54 @@ export async function POST(
         category: "",
         publishDate: p.publishDate || "",
       };
+      let postId: string;
       if (existing) {
         await withDb(() => db.xhsPost.update({ where: { id: existing.id }, data }));
-        postsCreated.push(existing.id);
+        postId = existing.id;
       } else {
         const np = await withDb(() => db.xhsPost.create({ data: { accountId: id, ...data } }));
-        postsCreated.push(np.id);
+        postId = np.id;
+      }
+      postsCreated.push(postId);
+
+      // Save comments for this post
+      if (p.commentList && p.commentList.length > 0) {
+        for (const comment of p.commentList) {
+          if (!comment.content) continue;
+          // Check if comment already exists
+          const existingComment = comment.xhsCommentId
+            ? await withDb(() => db.xhsComment.findFirst({
+                where: { postId, xhsCommentId: comment.xhsCommentId },
+              }))
+            : null;
+          if (existingComment) {
+            await withDb(() => db.xhsComment.update({
+              where: { id: existingComment.id },
+              data: {
+                content: comment.content,
+                userName: comment.userName,
+                userAvatar: comment.userAvatar,
+                likes: comment.likes,
+                subCommentCount: comment.subCommentCount,
+                commentDate: comment.commentDate,
+              },
+            }));
+          } else {
+            await withDb(() => db.xhsComment.create({
+              data: {
+                postId,
+                xhsCommentId: comment.xhsCommentId || "",
+                content: comment.content,
+                userName: comment.userName,
+                userAvatar: comment.userAvatar,
+                likes: comment.likes,
+                subCommentCount: comment.subCommentCount,
+                commentDate: comment.commentDate,
+              },
+            }));
+            commentsCreated[0]++;
+          }
+        }
       }
     }
 
@@ -213,6 +267,7 @@ export async function POST(
         account: updatedAccount,
         postsFound: result.totalFound,
         postsSynced: postsCreated.length,
+        commentsSynced: commentsCreated[0],
         warnings: result.warnings,
         partialData: result.partialData,
         scrapeMethod: result.scrapeMethod,

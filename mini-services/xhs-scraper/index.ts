@@ -67,6 +67,17 @@ interface PostData {
   publishDate: string;
   xsecToken: string;
   postType: string;
+  commentList: CommentData[];
+}
+
+interface CommentData {
+  xhsCommentId: string;
+  content: string;
+  userName: string;
+  userAvatar: string;
+  likes: number;
+  subCommentCount: number;
+  commentDate: string;
 }
 
 interface ProfileResult {
@@ -358,6 +369,7 @@ async function scrapeProfileViaHTML(
         publishDate: "",
         xsecToken: nc.xsecToken ?? "",
         postType: nc.type ?? "normal",
+        commentList: [],
       };
     })
     .filter((p): p is PostData => p !== null);
@@ -431,6 +443,18 @@ interface NoteDetailInitialState {
           xsecToken?: string;
           noteId?: string;
         };
+        commentList?: Array<{
+          id?: string;
+          content?: string;
+          userInfo?: {
+            nickname?: string;
+            image?: string;
+          };
+          likedCount?: string | number;
+          subCommentCount?: number;
+          createTime?: number;
+          ipLocation?: string;
+        }>;
       }
     >;
   };
@@ -537,6 +561,18 @@ async function scrapeNoteViaHTML(
     videoUrl = `https://sns-video-bd.xhscdn.com/${n.video.consumer.originVideoKey}`;
   }
 
+  // Extract comments from the note detail page
+  const rawComments = noteDetail.commentList || [];
+  const commentList: CommentData[] = rawComments.map((c) => ({
+    xhsCommentId: c.id || "",
+    content: c.content || "",
+    userName: c.userInfo?.nickname || "",
+    userAvatar: c.userInfo?.image || "",
+    likes: typeof c.likedCount === "number" ? c.likedCount : parseInteractionCount(String(c.likedCount || "")),
+    subCommentCount: c.subCommentCount || 0,
+    commentDate: formatTimestamp(c.createTime),
+  })).filter((c) => c.content !== "");
+
   const postData: PostData = {
     xhsPostId: n.noteId || noteId,
     title: n.title || "",
@@ -552,10 +588,11 @@ async function scrapeNoteViaHTML(
     publishDate: formatTimestamp(n.time),
     xsecToken: n.xsecToken || xsecToken || "",
     postType,
+    commentList,
   };
 
   console.log(
-    `[scrape-note] OK: ${postData.title || "(untitled)"}, likes=${postData.likes}, images=${imageUrls.length}`
+    `[scrape-note] OK: ${postData.title || "(untitled)"}, likes=${postData.likes}, images=${imageUrls.length}, comments=${commentList.length}`
   );
 
   return postData;
@@ -729,6 +766,7 @@ const server = createServer(async (req, res) => {
             post.tags = detail.tags.length > 0 ? detail.tags : post.tags;
             post.publishDate = detail.publishDate || post.publishDate;
             post.postType = detail.postType || post.postType;
+            post.commentList = detail.commentList.length > 0 ? detail.commentList : post.commentList;
             // Update xsecToken from detail if available
             if (detail.xsecToken) post.xsecToken = detail.xsecToken;
             // Keep coverUrl from card if detail didn't provide one

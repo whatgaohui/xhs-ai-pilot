@@ -56,9 +56,13 @@ function formatDate(dateStr: string): string {
   if (diffDays === 1) return "昨天";
   if (diffDays < 7) return `${diffDays}天前`;
   if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前`;
-  const month = d.getMonth() + 1;
-  const day = d.getDate();
-  return `${month}月${day}日`;
+  // If same year, show month/day; if different year, show year/month
+  if (d.getFullYear() === now.getFullYear()) {
+    const month = d.getMonth() + 1;
+    const day = d.getDate();
+    return `${month}月${day}日`;
+  }
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 // ─── Category Config ─────────────────────────────────────────────────────
