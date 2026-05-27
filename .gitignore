@@ -66,3 +66,20 @@ agent-ctx/
 
 # Worklog
 worklog.md
+worklog-task*.md
+
+# Scripts / runtime
+.zscripts/
+daemon.sh
+keep-alive.js
+run-dev.sh
+start-all.sh
+start-dev.sh
+start-server.sh
+supervise-dev.sh
+
+# Download directory
+download/
+
+# DB templates
+db/templates.json
